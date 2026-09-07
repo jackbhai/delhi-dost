@@ -1,0 +1,21 @@
+/* Delhi DOST — small polish layer on top of the design system.
+   Everything here is additive: the base variables do the heavy lifting. */
+
+/* wordmark & hero get the friendlier display face with a heavier cut */
+.brand { font-weight: 800; }
+.hero h1 { font-weight: 800; }
+
+/* topbar sits on a surface instead of raw black for depth */
+.topbar { background: var(--s1); }
+
+/* hero text a touch larger so the two-line wordmark reads like a brand */
+.hero h1 { font-size: 54px; letter-spacing: 2px; }
+
+/* tiles: keep focus ring accent in brand amber */
+.tile:active { transform: scale(.97); }
+
+/* live dot uses the accent so "live" always pops */
+.dot.live, span.live { background: var(--green); box-shadow: 0 0 0 0 rgba(255, 176, 32, .55); }
+
+/* mono chips */
+.mono { font-family: var(--font-mono); font-size: .92em; }

@@ -1,0 +1,970 @@
+/* Delhi DOST design system
+   Fonts: Baloo 2 (display) · DM Sans (body) · DM Mono (code)
+   Palette: deep navy + saffron amber + sky cyan */
+:root{
+  /* surfaces — true black for AMOLED battery saving */
+  --bg:#0B0F17;
+  --s1:#111A2B;
+  --s2:#182236;
+  --s3:#1F2C44;
+  --line:#253349;
+  --line2:#32445F;
+
+  /* brand */
+  --green:#FFB020;
+  --green-dim:#D9950D;
+  --cyan:#4CC9FF;
+  --cyan-dim:#2F9EDB;
+  --grad:linear-gradient(135deg,#FFB020 0%,#FF5D73 100%);
+
+  /* text */
+  --fg:#F2F6FF;
+  --fg2:#A8B4CC;
+  --fg3:#5D6B85;
+
+  /* status */
+  --warn:#FFD166;
+  --bad:#FF5C7A;
+
+  --r:18px; --r-sm:12px;
+  --safe-b:env(safe-area-inset-bottom,0px);
+  --safe-t:env(safe-area-inset-top,0px);
+
+  --font-display:'Baloo 2',system-ui,sans-serif;
+  --font-body:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --font-mono:'DM Mono',ui-monospace,Menlo,monospace;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{-webkit-text-size-adjust:100%}
+html,body,#root{height:100%}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--font-body);
+  font-size:15px;line-height:1.5;overscroll-behavior-y:none;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--green);color:#000}
+
+/* scrollbars */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:3px}
+
+.app{max-width:680px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;position:relative}
+
+/* ---------------- glow / glass primitives ---------------- */
+.glass{
+  background:linear-gradient(160deg,rgba(0,255,156,.05),rgba(0,229,255,.03));
+  border:1px solid var(--line);border-radius:var(--r);
+  backdrop-filter:blur(10px);
+}
+.glow{box-shadow:0 0 24px rgba(0,255,156,.14)}
+.gradtext{
+  background:var(--grad);-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+/* ---------------- top bar ---------------- */
+.topbar{
+  position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:12px;
+  padding:calc(12px + var(--safe-t)) 16px 12px;
+  background:rgba(0,0,0,.88);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--line);
+}
+.brand{font-family:var(--font-display);font-size:26px;letter-spacing:1.4px;line-height:1}
+.tb-t{flex:1;min-width:0;display:flex;flex-direction:column}
+.tb-t b{font-size:16px;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-t span{font-size:11.5px;color:var(--fg3)}
+.iconbtn{
+  width:38px;height:38px;flex:0 0 auto;display:grid;place-items:center;
+  background:var(--s2);border:1px solid var(--line);border-radius:12px;
+  color:var(--fg);font-size:19px;cursor:pointer;
+}
+.iconbtn:active{background:var(--s3);transform:scale(.94)}
+
+/* ---------------- hero ---------------- */
+.hero{padding:22px 4px 18px}
+.hero h1{
+  font-family:var(--font-display);font-size:42px;line-height:.98;letter-spacing:1.6px;
+  margin-bottom:10px;
+}
+.hero p{color:var(--fg2);font-size:14px;max-width:34ch}
+.hero .pillrow{display:flex;gap:7px;flex-wrap:wrap;margin-top:14px}
+.pill{
+  font-size:11px;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--line2);color:var(--fg2);background:var(--s1);
+}
+.pill.on{border-color:var(--green);color:var(--green);box-shadow:0 0 12px rgba(0,255,156,.18)}
+
+/* ---------------- search ---------------- */
+.search{
+  display:flex;align-items:center;gap:9px;background:var(--s1);
+  border:1px solid var(--line);border-radius:14px;padding:0 13px;margin-bottom:14px;
+}
+.search:focus-within{border-color:var(--green);box-shadow:0 0 0 3px rgba(0,255,156,.09)}
+.search svg{width:17px;height:17px;fill:none;stroke:var(--fg3);stroke-width:2;flex:0 0 auto}
+.search input{
+  flex:1;background:none;border:0;color:var(--fg);font-size:16px;
+  padding:13px 0;outline:none;min-width:0;font-family:var(--font-body);
+}
+.search input::placeholder{color:var(--fg3)}
+
+/* ---------------- category chips ---------------- */
+.cats{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+.cats::-webkit-scrollbar{display:none}
+.cat{
+  flex:0 0 auto;padding:8px 15px;border-radius:999px;font-size:12.5px;font-weight:500;
+  background:var(--s2);border:1px solid var(--line);color:var(--fg2);cursor:pointer;
+  white-space:nowrap;
+}
+.cat.on{background-color:#FFC220;background-image:var(--grad);color:#00110A;
+  border-color:transparent;font-weight:700}
+
+/* ---------------- tool grid ---------------- */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(102px,1fr));gap:10px}
+.tile{
+  position:relative;background:var(--s1);border:1px solid var(--line);
+  border-radius:var(--r-sm);padding:15px 9px;display:flex;flex-direction:column;
+  align-items:center;gap:6px;color:var(--fg);cursor:pointer;text-align:center;
+  min-height:100px;justify-content:center;overflow:hidden;
+  transition:transform .14s cubic-bezier(.34,1.56,.64,1),border-color .14s;
+}
+.tile:active{transform:scale(.94);border-color:var(--green)}
+.tile .ic{font-size:24px;line-height:1}
+.tile b{font-size:12px;font-weight:600;letter-spacing:-.1px}
+.tile small{font-size:9.5px;color:var(--fg3);line-height:1.25}
+.tile .live{
+  position:absolute;top:6px;right:6px;width:5px;height:5px;border-radius:50%;
+  background:var(--green);box-shadow:0 0 6px var(--green);
+}
+.tile .off{position:absolute;top:5px;right:6px;font-size:8px;color:var(--cyan)}
+
+/* ---------------- cards / data ---------------- */
+.card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.card+.card{margin-top:12px}
+.chead{
+  font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--fg3);
+  margin-bottom:12px;display:flex;align-items:center;gap:8px;font-weight:600;
+}
+.big{font-size:38px;font-weight:800;letter-spacing:-1.6px;line-height:1}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:var(--s2);border:1px solid var(--line);border-radius:var(--r-sm);padding:11px;text-align:center}
+.stat .v{font-size:17px;font-weight:700;letter-spacing:-.4px}
+.stat .l{font-size:9.5px;color:var(--fg3);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.stat .s{font-size:9px;color:var(--fg3)}
+
+.kv{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.kv:last-child{border-bottom:0}
+.kv span{color:var(--fg3);flex:0 0 auto}
+.kv b{text-align:right;font-weight:600}
+
+.list{display:flex;flex-direction:column;gap:1px;background:var(--s1);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.row{display:flex;align-items:center;gap:11px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.col{display:flex;flex-direction:column;gap:3px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.row:last-child,.col:last-child{border-bottom:0}
+.row:active,.col:active{background:var(--s2)}
+.main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.main b,.col b{font-size:14px;font-weight:600}
+.end{text-align:right;font-size:13px}
+a.col,a.row{color:inherit;text-decoration:none}
+
+/* ---------------- controls ---------------- */
+.btn{
+  background-color:#FFC220;background-image:var(--grad);color:#00110A;
+  border:0;padding:12px 18px;border-radius:12px;
+  font-family:var(--font-body);font-size:14px;font-weight:700;cursor:pointer;
+}
+.btn:active{transform:scale(.97)}
+.btn.ghost{background:var(--s2);color:var(--fg);border:1px solid var(--line);font-weight:500}
+.btn.sm{padding:7px 12px;font-size:12px}
+.btn:disabled{opacity:.4}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.fld{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.fld label{font-size:11px;color:var(--fg3);text-transform:uppercase;letter-spacing:.6px;font-weight:600}
+.fld input,.fld select,.fld textarea{
+  background:var(--s1);border:1px solid var(--line);color:var(--fg);
+  padding:12px;border-radius:12px;font-size:16px;outline:none;width:100%;
+  font-family:var(--font-body);
+}
+.fld textarea{min-height:110px;resize:vertical;font-family:var(--font-mono);font-size:13px}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--green)}
+.out{
+  background:var(--s2);border:1px solid var(--line);border-radius:12px;padding:12px;
+  font-family:var(--font-mono);font-size:13px;word-break:break-all;white-space:pre-wrap;
+  max-height:280px;overflow:auto;
+}
+
+/* ---------------- states ---------------- */
+.state{display:flex;flex-direction:column;align-items:center;gap:11px;padding:36px 16px;color:var(--fg3);text-align:center}
+.spin{width:26px;height:26px;border:2.5px solid var(--line2);border-top-color:var(--green);border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.err{background:rgba(255,92,122,.07);border:1px solid rgba(255,92,122,.25);border-radius:var(--r);padding:14px;color:var(--fg)}
+.err h4{font-size:14px;margin-bottom:5px}
+.err p{font-size:12.5px;color:var(--fg2)}
+.err details{margin-top:8px;font-size:11.5px}
+.err summary{color:var(--cyan);cursor:pointer;padding:4px 0}
+.err li{color:var(--fg3);margin-left:14px}
+
+.src{
+  display:flex;align-items:center;gap:7px;margin-top:12px;padding-top:10px;
+  border-top:1px solid var(--line);font-size:11px;color:var(--fg3);flex-wrap:wrap;
+}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);flex:0 0 auto}
+.dot.warn{background:var(--warn);box-shadow:0 0 6px var(--warn)}
+.dot.bad{background:var(--bad);box-shadow:0 0 6px var(--bad)}
+.tag{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--s3);border:1px solid var(--line2);color:var(--fg3)}
+.tag.g{color:var(--green);border-color:rgba(0,255,156,.3)}
+.tag.c{color:var(--cyan);border-color:rgba(0,229,255,.3)}
+/* A confirmed-live marker sits inside its tag, so "live" reads as a measured
+   fact rather than a label every row wears by default. */
+.tag .dot{width:5px;height:5px;margin-right:4px;display:inline-block;vertical-align:middle}
+.tag .dot.live{background:var(--green);box-shadow:0 0 5px var(--green)}
+.tag.w{color:var(--warn);border-color:rgba(255,209,102,.3)}
+
+/* ---------------- bottom nav ---------------- */
+.nav{
+  position:sticky;bottom:0;z-index:60;display:grid;grid-template-columns:repeat(5,1fr);
+  background:rgba(0,0,0,.94);backdrop-filter:blur(16px);border-top:1px solid var(--line);
+  padding-bottom:var(--safe-b);margin-top:auto;
+}
+.nav button{
+  background:none;border:0;color:var(--fg3);padding:9px 2px 8px;display:flex;
+  flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-family:var(--font-body);
+}
+.nav button span{font-size:17px;line-height:1}
+.nav button small{font-size:9px;font-weight:600}
+.nav button.on{color:var(--green)}
+
+.main-area{flex:1;padding:0 16px 20px}
+.dim{color:var(--fg3)}
+.sm{font-size:12px}
+.mono{font-family:var(--font-mono)}
+.center{text-align:center}
+.hr{height:1px;background:var(--line);margin:16px 0}
+
+@media(min-width:600px){
+  .hero h1{font-size:52px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(116px,1fr))}
+}
+
+/* ============================================================
+   NATIVE CONTROL CONTRAST FIX
+   Browsers render <option>, date/color/range widgets with their own
+   light-mode defaults => black text on our black surface = invisible.
+   These rules force every native control into the dark theme.
+   ============================================================ */
+input,select,textarea,button,optgroup,option{
+  font-family:var(--font-body);
+  color:var(--fg);
+  color-scheme:dark;                 /* makes UA widgets render dark */
+}
+select{
+  -webkit-appearance:none;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--green) 50%),
+                   linear-gradient(135deg,var(--green) 50%,transparent 50%);
+  background-position:calc(100% - 18px) 50%,calc(100% - 13px) 50%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  padding-right:38px !important;
+}
+/* the dropdown list itself is drawn by the OS - force dark there too */
+select option,select optgroup{
+  background:#0E1412 !important;
+  color:#E8FFF4 !important;
+}
+input[type="date"],input[type="time"],input[type="datetime-local"],input[type="month"]{
+  background:var(--s1);color:var(--fg);
+}
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator{
+  filter:invert(1) sepia(1) saturate(5) hue-rotate(100deg);cursor:pointer;
+}
+input[type="date"]::-webkit-datetime-edit-text,
+input[type="date"]::-webkit-datetime-edit-month-field,
+input[type="date"]::-webkit-datetime-edit-day-field,
+input[type="date"]::-webkit-datetime-edit-year-field{color:var(--fg)}
+input[type="color"]{
+  -webkit-appearance:none;appearance:none;border:1px solid var(--line);
+  background:var(--s1);cursor:pointer;padding:4px;
+}
+input[type="color"]::-webkit-color-swatch-wrapper{padding:0}
+input[type="color"]::-webkit-color-swatch{border:0;border-radius:8px}
+input[type="range"]{
+  -webkit-appearance:none;appearance:none;background:transparent;
+  accent-color:var(--green);height:26px;
+}
+input[type="range"]::-webkit-slider-runnable-track{
+  height:5px;border-radius:3px;background:var(--line2);
+}
+input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:19px;height:19px;border-radius:50%;
+  background:var(--green);margin-top:-7px;box-shadow:0 0 9px rgba(0,255,156,.55);
+  border:0;cursor:pointer;
+}
+input[type="range"]::-moz-range-track{height:5px;border-radius:3px;background:var(--line2)}
+input[type="range"]::-moz-range-thumb{
+  width:19px;height:19px;border:0;border-radius:50%;background:var(--green);
+  box-shadow:0 0 9px rgba(0,255,156,.55);cursor:pointer;
+}
+input::placeholder,textarea::placeholder{color:var(--fg3);opacity:1}
+/* autofill in Chrome paints a white box with black text */
+input:-webkit-autofill,input:-webkit-autofill:focus{
+  -webkit-text-fill-color:var(--fg);
+  -webkit-box-shadow:0 0 0 1000px var(--s1) inset;
+  caret-color:var(--fg);
+}
+/* anything the browser renders inside our cards inherits readable colour */
+.card,.list,.out,.state{color:var(--fg)}
+details summary{color:var(--cyan)}
+
+.locbar{
+  display:flex;align-items:center;gap:10px;background:var(--s1);
+  border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin-bottom:12px;
+}
+.locbar b{color:var(--fg)}
+
+/* Gradient surfaces must always carry an opaque fallback colour, otherwise the
+   dark text sits on a transparent (= black) background and disappears.
+   `.tag.g` is deliberately NOT in this list: it is an outline chip with green
+   TEXT, so giving it a green background made the label invisible (green on
+   green). It gets its own tinted background below instead. */
+.btn,.cat.on{background-color:#FFC220}
+.tag.g{background-color:rgba(0,255,156,.10);background-image:none}
+.btn.ghost{background-color:var(--s2);background-image:none;color:var(--fg)}
+.gradtext{background-color:transparent}
+@supports not (background-clip:text){
+  .gradtext{-webkit-text-fill-color:var(--green);color:var(--green)}
+}
+/* Safety net: never allow pure-black text anywhere on the dark shell. */
+button:not(.btn):not(.cat.on){color:var(--fg)}
+
+/* ---------------- mini player ---------------- */
+.mini{position:fixed;left:0;right:0;bottom:calc(58px + var(--safe-b));z-index:70;
+  max-width:680px;margin:0 auto;background:rgba(14,20,18,.97);backdrop-filter:blur(18px);
+  border-top:1px solid var(--line);cursor:pointer}
+.mini.mini-hidden{bottom:calc(58px + var(--safe-b));background:rgba(14,20,18,.92);border-top:1px solid rgba(0,255,156,.2);
+  display:flex;align-items:center;gap:8px;padding:6px 10px}
+.mini-restore{flex:1;background:var(--s2);border:1px solid var(--line);color:var(--fg2);padding:6px 10px;border-radius:999px;
+  font-size:11px;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-restore:active{transform:scale(.97)}
+.mini-prog{height:2px;background:var(--line2)}
+.mini-prog i{display:block;height:100%;background:var(--grad);background-color:#FFC220}
+.mini-row{display:flex;align-items:center;gap:10px;padding:8px 12px}
+.mini-row img,.mini-ph{width:40px;height:40px;border-radius:9px;object-fit:cover;flex:0 0 auto;background:var(--s3)}
+.mini-ph{display:grid;place-items:center;font-size:18px}
+/* The collapsed thumbnail becomes a small turning record while playing, at
+   the same rate as the full player's disc, and freezes in place when paused
+   rather than snapping back upright. */
+.mini-art,.mini-ph{border-radius:50%;animation:discspin 18s linear infinite;
+  animation-play-state:paused}
+.mini-art.spin,.mini-ph.spin{animation-play-state:running}
+@media (prefers-reduced-motion:reduce){.mini-art,.mini-ph{animation:none}}
+.mini-txt{flex:1;min-width:0;display:flex;flex-direction:column}
+.mini-txt b{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A title too long for the bar scrolls once and settles, instead of being cut
+   off with an ellipsis the user can do nothing about. */
+.mini-ttl{overflow:hidden}
+.mini-ttl>span{display:inline-block;white-space:nowrap;animation:marq 13s linear 2s infinite}
+@keyframes marq{
+  0%,12%{transform:translateX(0)}
+  46%,58%{transform:translateX(min(0px,calc(100% - 46vw)))}
+  92%,100%{transform:translateX(0)}
+}
+@media (prefers-reduced-motion:reduce){.mini-ttl>span{animation:none}}
+.mini-txt span{font-size:11px;color:var(--fg3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mini-btn{background:none;border:0;color:var(--fg);font-size:17px;padding:5px;cursor:pointer;flex:0 0 auto}
+.mini-btn.play{background-color:#FFC220;background-image:var(--grad);color:#00110A;
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:14px}
+
+/* ---------------- full player ---------------- */
+.full{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;
+  max-width:680px;margin:0 auto;animation:up .22s cubic-bezier(.2,.9,.3,1)}
+@keyframes up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.full-top{display:flex;align-items:center;gap:12px;padding:calc(12px + var(--safe-t)) 16px 10px}
+.full-ttl{flex:1;text-align:center;display:flex;flex-direction:column}
+.full-ttl b{font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--fg3)}
+.full-ttl span{font-size:11px;color:var(--green)}
+.full-tabs{display:flex;gap:8px;padding:0 16px 10px;overflow-x:auto;scrollbar-width:none}
+.full-tabs::-webkit-scrollbar{display:none}
+.full-body{flex:1;overflow-y:auto;padding:8px 16px}
+.art-wrap{display:grid;place-items:center;padding:10px 0}
+/* Generic square sleeve, still used by non-disc surfaces. The player's disc
+   overrides width/height/radius via .art-disc .art, which is more specific. */
+.art{width:min(72vw,270px);aspect-ratio:1;border-radius:20px;object-fit:cover;
+  box-shadow:0 14px 44px rgba(0,255,156,.16)}
+.art.ph{display:grid;place-items:center;font-size:64px;background:var(--s2)}
+.full-name{font-family:var(--font-display);font-size:25px;letter-spacing:.8px;text-align:center;
+  margin-top:12px;line-height:1.15}
+.lyrics{padding:8px 0 20px;max-height:100%}
+.lyr-src{text-align:center;margin:0 0 12px;opacity:.7}
+.lyr{font-size:16px;line-height:1.9;color:var(--fg3);text-align:center;cursor:pointer;
+  transition:color .2s,transform .2s;padding:2px 0}
+.lyr.on{color:var(--green);font-weight:700;transform:scale(1.05);text-shadow:0 0 18px rgba(0,255,156,.4)}
+.lyr-plain{white-space:pre-wrap;font-size:14px;line-height:1.8;color:var(--fg2);font-family:var(--font-body)}
+.eqrow{display:flex;gap:3px;align-items:flex-end;justify-content:space-between}
+.eqband{flex:1;text-align:center;display:flex;flex-direction:column;align-items:center}
+.eqband .vert{writing-mode:vertical-lr;direction:rtl;width:22px;height:110px;accent-color:var(--green)}
+.eqhz{font-size:8.5px;color:var(--fg3);margin-top:5px}
+.eqdb{font-size:8.5px;color:var(--green)}
+.full-ctl{padding:12px 16px calc(16px + var(--safe-b));border-top:1px solid var(--line);background:var(--s1)}
+.seek{width:100%;accent-color:var(--green)}
+.times{display:flex;justify-content:space-between;font-size:11px;color:var(--fg3);margin-top:-4px}
+.btns{display:flex;align-items:center;justify-content:center;gap:20px;margin:10px 0 4px}
+.cbtn{background:none;border:0;color:var(--fg);font-size:22px;cursor:pointer;padding:4px}
+.cbtn.act{color:var(--green)}
+.cbtn.big{width:58px;height:58px;border-radius:50%;background-color:#FFC220;
+  background-image:var(--grad);color:#00110A;font-size:22px;display:grid;place-items:center}
+.has-mini .main-area{padding-bottom:130px}
+.ytbox{position:relative;width:100%;aspect-ratio:16/9;border-radius:16px;overflow:hidden;
+  background:#000;box-shadow:0 14px 44px rgba(0,255,156,.14)}
+.ytbox iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.yt-hidden{position:fixed;width:1px;height:1px;opacity:.01;pointer-events:none;left:-9999px;bottom:0}
+.yt-hidden iframe{width:320px;height:180px;border:0}
+
+/* ================================================================
+   Real SVG icons — replaced every emoji in the UI.
+   Emoji rendered as a different font on every OS, ignored the theme
+   colours and could not be sized reliably. These inherit currentColor.
+   ================================================================ */
+.ico{flex:0 0 auto;vertical-align:-.14em}
+.tile .ic{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;
+  background:var(--s3);color:var(--green);margin-bottom:2px}
+.tile:active .ic{background:rgba(0,255,156,.14)}
+.nav button .ico{margin-bottom:2px}
+.chead{display:flex;align-items:center;gap:7px}
+.chead .ico{color:var(--green)}
+.chead.sm{font-size:11.5px;text-transform:uppercase;letter-spacing:.7px;color:var(--fg3)}
+.btn .ico,.cat .ico,.pill .ico{margin-right:5px}
+.pill .ico{color:var(--green)}
+.search .ico{color:var(--fg3);flex:0 0 auto}
+
+/* ---------------- mode hubs (Bus / Train / Metro) ---------------- */
+.hubhead{display:flex;align-items:center;gap:13px;padding:2px 0 14px}
+.hubico{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;flex:0 0 auto;
+  background:linear-gradient(145deg,rgba(0,255,156,.16),rgba(0,229,255,.10));
+  color:var(--green);border:1px solid rgba(0,255,156,.22)}
+.hubhead b{display:block;font-size:18px;font-family:var(--font-display);letter-spacing:.5px}
+.hubhead span{display:block;font-size:12px;margin-top:1px}
+
+.tabs{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+  background:var(--s2);border:1px solid var(--line);border-radius:14px;padding:5px}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1;min-width:max-content;display:flex;align-items:center;justify-content:center;gap:6px;
+  padding:9px 13px;border-radius:10px;border:0;background:none;color:var(--fg3);
+  font-size:12.5px;font-weight:650;font-family:var(--font-body);cursor:pointer;white-space:nowrap;
+  transition:background .15s,color .15s}
+.tab.on{background-color:#FFC220;background-image:var(--grad);color:#00110A}
+.tab.on .ico{color:#00110A}
+
+/* ---------------- inputs with a leading icon ---------------- */
+.ip-wrap{display:flex;align-items:center;gap:9px;background:var(--s2);border:1px solid var(--line);
+  border-radius:12px;padding:0 12px}
+.ip-wrap:focus-within{border-color:rgba(0,255,156,.45);box-shadow:0 0 0 3px rgba(0,255,156,.09)}
+.ip-wrap .ico{color:var(--fg3)}
+.ip-wrap input{flex:1;background:none;border:0;padding:12px 0;color:var(--fg);
+  font-size:14px;font-family:var(--font-body);outline:none;min-width:0}
+.ip-x{background:none;border:0;color:var(--fg3);display:grid;place-items:center;cursor:pointer;padding:4px}
+
+/* ---------------- checkbox row ---------------- */
+.chk{display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:10px;
+  background:var(--s2);border:1px solid var(--line);border-radius:12px;
+  font-size:13px;cursor:pointer;user-select:none}
+.chk input{width:18px;height:18px;accent-color:#FFC220;flex:0 0 auto;cursor:pointer}
+
+/* ---------------- chips (uses / side effects) ---------------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.chip{font-size:11.5px;padding:5px 10px;border-radius:8px;background:var(--s3);color:var(--fg2);
+  border:1px solid var(--line);line-height:1.3}
+.chip.g{background:rgba(0,255,156,.09);border-color:rgba(0,255,156,.26);color:#8CFFD0}
+.chip.w{background:rgba(255,209,102,.09);border-color:rgba(255,209,102,.26);color:#FFE2A0}
+
+/* ---------------- inline notes ---------------- */
+.note{margin-top:10px;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.55;
+  background:rgba(0,229,255,.07);border:1px solid rgba(0,229,255,.22);color:#A9EEFF}
+.note.bad{background:rgba(255,90,110,.08);border-color:rgba(255,90,110,.28);color:#FFB3BE}
+.note.warn{background:rgba(255,209,102,.08);border-color:rgba(255,209,102,.28);color:#FFE2A0}
+
+/* ---------------- bus route badge + change bar ---------------- */
+.busref{min-width:54px;padding:4px 9px;border-radius:8px;text-align:center;flex:0 0 auto;
+  background:var(--s3);color:var(--green);font-weight:800;font-size:12.5px;
+  font-family:var(--font-mono);letter-spacing:.3px}
+.changebar{margin-top:8px;padding:8px 11px;border-radius:9px;display:flex;align-items:center;gap:7px;
+  background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.28);
+  color:var(--warn);font-size:12.5px;font-weight:600}
+
+/* medicine detail: keep long label text readable */
+.card .dim[style*="pre-wrap"]{word-break:break-word}
+
+/* ---------------- music: chart numbers + inline spinner ---------------- */
+.chartno{width:24px;flex:0 0 auto;text-align:center;font-family:var(--font-mono);
+  font-size:12px;font-weight:700;color:var(--fg3)}
+.row:nth-child(-n+3) .chartno{color:var(--green)}
+.spin-sm{width:15px;height:15px;border-radius:50%;display:inline-block;
+  border:2px solid var(--line2);border-top-color:var(--green);animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.tile:disabled{opacity:.5}
+.tile small{font-size:10px;color:var(--fg3);margin-top:1px}
+
+/* ---------------- music library: row actions + bottom sheet ---------------- */
+.rowbtn{background:none;border:0;padding:5px;cursor:pointer;display:grid;place-items:center;
+  border-radius:7px;flex:0 0 auto}
+.rowbtn:active{background:var(--s3)}
+.sheet-bg{position:fixed;inset:0;z-index:120;background:rgba(0,0,0,.62);
+  display:flex;align-items:flex-end;justify-content:center;animation:fade .16s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;max-width:680px;background:var(--s1);border:1px solid var(--line);
+  border-radius:18px 18px 0 0;padding:16px 16px calc(16px + var(--safe-b));
+  animation:up .2s cubic-bezier(.2,.9,.3,1)}
+.steps{margin:6px 0 0;padding-left:20px;font-size:12.5px;line-height:1.85;color:var(--fg2)}
+.steps li{margin-bottom:3px}
+.steps b{color:var(--fg)}
+
+/* ---------------------------------------------------------------- player art
+   A record, not a rounded square.
+
+   THE PAUSE PROBLEM
+   The old version toggled `animation` off when paused. A CSS animation that
+   stops does not hold its current frame — the element snaps back to 0deg, so
+   pausing yanked the artwork upright in one jarring jump. The fix is
+   `animation-play-state:paused`, which freezes the disc exactly where it is,
+   plus a slow ease on resume so it spins up rather than teleporting.
+
+   `prefers-reduced-motion` switches the rotation off entirely rather than
+   merely slowing it. */
+.disc-stage{position:relative;display:grid;place-items:center;
+  width:min(72vw,270px);aspect-ratio:1}
+.art-disc{position:relative;display:grid;place-items:center;
+  width:100%;height:100%;border-radius:50%;
+  background:radial-gradient(circle at 50% 50%,#12100e 0%,#0a0a0a 62%,#050605 100%);
+  box-shadow:0 18px 52px #00ff9c26,0 0 0 1px #ffffff0f inset,0 2px 14px #0009;
+  animation:discspin 18s linear infinite;
+  animation-play-state:paused}
+.art-disc.spin{animation-play-state:running}
+/* Freezes in place instead of snapping back to zero degrees. */
+.art-disc.coast{animation-play-state:paused}
+@keyframes discspin{to{transform:rotate(360deg)}}
+
+/* The pressed grooves. Concentric hairlines, faint enough to read as texture
+   rather than as rings drawn on top of the art. */
+.groove{position:absolute;border-radius:50%;pointer-events:none;
+  border:1px solid #ffffff08}
+.groove.g1{inset:1.5%}
+.groove.g2{inset:5%;border-color:#ffffff0a}
+.groove.g3{inset:9%}
+.groove.g4{inset:13.5%;border-color:#ffffff07}
+
+.art-disc .art{width:74%;height:74%;border-radius:50%;object-fit:cover;
+  box-shadow:0 0 0 1px #ffffff14,0 6px 18px #000000a6}
+.art-disc .art.ph{border-radius:50%;background:var(--s2);display:grid;place-items:center;color:var(--fg3)}
+
+/* A fixed highlight that does NOT rotate with the disc, so the sleeve looks
+   like it is turning under a light rather than carrying its own glare. */
+.art-sheen{position:absolute;inset:0;border-radius:50%;pointer-events:none;
+  background:linear-gradient(118deg,#ffffff14 0%,#ffffff00 34%,#ffffff00 66%,#ffffff0a 100%);
+  animation:discspin 18s linear infinite reverse;animation-play-state:inherit}
+.art-disc.spin .art-sheen{animation-play-state:running}
+
+.art-hole{position:absolute;width:13%;aspect-ratio:1;border-radius:50%;
+  background:var(--bg);box-shadow:0 0 0 4px #0e1412,0 0 0 5px var(--line2),0 0 0 6px #ffffff0d}
+
+@media (prefers-reduced-motion:reduce){
+  .art-disc,.art-sheen{animation:none}
+}
+
+/* The ring visualiser: a halo around the sleeve driven by the analyser.
+   --pulse and --glow are written by the animation frame, so the CSS holds the
+   look and JS only supplies two numbers. */
+.disc-stage.ring{transform:scale(var(--pulse,1));transition:transform .08s linear}
+.disc-ring{position:absolute;inset:-9px;border-radius:50%;pointer-events:none;
+  border:1.5px solid #00ff9c4d;
+  box-shadow:0 0 var(--glow,0px) #00ff9c66,inset 0 0 calc(var(--glow,0px) / 2) #00e5ff40}
+
+/* ------------------------------------------------------------- visualiser */
+.vizbox{margin-top:10px}
+.viz{width:100%;height:74px;display:block}
+.viz-note{font-size:10.5px;line-height:1.5;color:var(--fg3);text-align:center;
+  padding:10px 6px;max-width:330px;margin:0 auto}
+.vizpick{display:flex;gap:6px;justify-content:center;margin-top:6px}
+.vizb{background:var(--s2);border:1px solid var(--line);color:var(--fg3);
+  width:30px;height:24px;border-radius:8px;display:grid;place-items:center;cursor:pointer;
+  transition:color .15s,border-color .15s,background .15s}
+.vizb.on{color:var(--green);border-color:#00ff9c4d;background:#00ff9c14}
+.vizb:active{transform:scale(.93)}
+
+/* ---------------------------------------------- track facts, as small chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:10px}
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;
+  padding:4px 9px;border-radius:999px;background:var(--s2);
+  border:1px solid var(--line);color:var(--fg2);max-width:100%;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip.on{color:var(--green);border-color:#00ff9c40;background:#00ff9c12}
+
+/* which source answered — plain text, never a badge pretending to be a brand */
+.srcline{display:flex;align-items:center;justify-content:center;gap:7px;
+  margin-top:8px;font-size:11px;color:var(--fg3)}
+.srcline .dot{width:6px;height:6px}
+
+/* --------------------------------------------------------- seek and volume
+   The seek bar draws its own track so buffered-ahead can be shown behind the
+   played portion; the real <input> sits on top, transparent, and keeps all the
+   keyboard and touch behaviour a native range control already has. */
+.seekwrap{position:relative;height:22px;display:flex;align-items:center}
+.seektrack{position:absolute;left:0;right:0;height:4px;border-radius:3px;
+  background:var(--line2);overflow:hidden;pointer-events:none}
+.seektrack .buf{position:absolute;left:0;top:0;height:100%;background:var(--line2);
+  filter:brightness(1.9);transition:width .3s linear}
+.seektrack .played{position:absolute;left:0;top:0;height:100%;
+  background-image:var(--grad);background-color:#FFC220}
+.seek{position:relative;width:100%;margin:0;background:transparent;
+  -webkit-appearance:none;appearance:none;height:22px}
+.seek::-webkit-slider-runnable-track{background:transparent;height:22px}
+.seek::-moz-range-track{background:transparent;height:22px}
+.seek::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+  width:13px;height:13px;border-radius:50%;background:var(--green);
+  box-shadow:0 0 0 3px #00ff9c33,0 2px 6px #000a;cursor:pointer;margin-top:0}
+.seek::-moz-range-thumb{width:13px;height:13px;border:0;border-radius:50%;
+  background:var(--green);box-shadow:0 0 0 3px #00ff9c33;cursor:pointer}
+.seek:disabled::-webkit-slider-thumb{background:var(--fg3);box-shadow:none}
+.times .rem{color:var(--fg3);font-variant-numeric:tabular-nums}
+
+/* ------------------------------------------------------------------- queue */
+.qhead{display:flex;justify-content:space-between;align-items:center;
+  padding:2px 4px 8px;font-size:10.5px;color:var(--fg3);text-transform:uppercase;
+  letter-spacing:.6px}
+.row.qnow{background:#00ff9c14;border-radius:10px}
+.qnum{width:20px}
+/* Three bars that rise and fall — the row that is playing is findable while
+   scrolling a long queue, which a tinted background alone does not achieve. */
+.qbars{width:20px;height:14px;display:flex;align-items:flex-end;gap:2px;flex:0 0 auto}
+.qbars i{flex:1;background:var(--green);border-radius:1px;height:35%;
+  animation:qb .9s ease-in-out infinite}
+.qbars i:nth-child(2){animation-delay:.3s}
+.qbars i:nth-child(3){animation-delay:.6s}
+@keyframes qb{0%,100%{height:30%}50%{height:100%}}
+@media (prefers-reduced-motion:reduce){.qbars i{animation:none;height:60%}}
+
+.volrow{display:flex;align-items:center;gap:9px;margin:2px 0 8px;padding:0 2px}
+.volbtn{background:none;border:0;color:var(--fg3);cursor:pointer;padding:3px;
+  display:grid;place-items:center}
+.volbtn:active{transform:scale(.92)}
+.vol{flex:1;accent-color:var(--green);height:3px}
+.volpct{font-size:10px;color:var(--fg3);width:24px;text-align:right}
+
+/* ------------------------------------------------------------------ live TV
+   The player is fixed above the grid so the channel list stays usable while
+   something is on — switching channels should not mean losing your place. */
+.tv-screen{position:fixed;left:0;right:0;top:0;z-index:80;max-width:680px;margin:0 auto;
+  background:#000;box-shadow:0 10px 40px #000c}
+.tv-video{position:relative;aspect-ratio:16/9;background:#000}
+.tv-overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:9px;background:#000000d9;color:var(--fg);padding:16px}
+.tv-bar{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  background:var(--s1);border-top:1px solid var(--line)}
+.tv-grid{grid-template-columns:repeat(auto-fill,minmax(104px,1fr))}
+.tv-tile{min-height:112px;gap:5px}
+.tv-logo{width:52px;height:38px;display:grid;place-items:center;
+  background:var(--s2);border-radius:9px;overflow:hidden;color:var(--fg3)}
+.tv-logo img{max-width:100%;max-height:100%;object-fit:contain}
+.tv-tile b{font-size:11px;line-height:1.2}
+.tv-tile small{font-size:9px}
+/* When a channel is on, the list needs room to clear the fixed player. */
+.tv-screen ~ *{}
+
+/* ============================================================
+   THEME SYSTEM - Standard + Custom Themes Support
+   Themes applied via JS: document.documentElement.style.setProperty
+   This section ensures light themes and custom themes work correctly
+   ============================================================ */
+
+/* Theme transition for smooth switching */
+:root {
+  --theme-transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+html {
+  transition: var(--theme-transition);
+}
+
+/* Topbar and nav should adapt to theme bg */
+.topbar {
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+}
+
+.nav {
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+}
+
+/* Light theme specific adjustments - when data-theme is light */
+[data-theme="light"] .topbar,
+[data-theme="light"] .nav {
+  backdrop-filter: blur(16px) saturate(1.2);
+}
+
+[data-theme="light"] .tile {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+[data-theme="light"] .card {
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+
+/* Theme-aware scrollbar */
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--line2) 80%, transparent);
+}
+
+/* Ensure gradtext works in light theme too */
+[data-theme="light"] .gradtext {
+  filter: brightness(0.9);
+}
+
+/* Custom theme indicator */
+[data-theme="custom"] {
+  /* Custom themes can be any colors, so no specific overrides */
+}
+
+/* PWA install prompt styling */
+.pwa-install-prompt {
+  position: fixed;
+  bottom: calc(70px + var(--safe-b));
+  left: 16px;
+  right: 16px;
+  max-width: 648px;
+  margin: 0 auto;
+  background: var(--s1);
+  border: 1px solid var(--green);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 75;
+  box-shadow: 0 8px 32px rgba(0,255,156,0.15);
+  animation: slideUp 0.3s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Settings page specific */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.theme-card {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--s1);
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.theme-card:hover {
+  border-color: var(--line2);
+  transform: translateY(-1px);
+}
+
+.theme-card.active {
+  border: 2px solid var(--green);
+  box-shadow: 0 0 12px rgba(0,255,156,0.15);
+}
+
+.theme-colors {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.theme-color-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 1px solid var(--line);
+}
+
+/* Live check log styling */
+.live-log {
+  background: #000;
+  color: #0f0;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 10px;
+  border-radius: 8px;
+  max-height: 250px;
+  overflow: auto;
+  border: 1px solid var(--line2);
+}
+
+.live-log .log-pass { color: #0f0; }
+.live-log .log-fail { color: #f00; }
+.live-log .log-warn { color: #ff0; }
+.live-log .log-info { color: #0ff; }
+
+/* Color picker styling for custom theme maker */
+input[type="color"] {
+  width: 40px;
+  height: 36px;
+  padding: 2px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--s1);
+  cursor: pointer;
+}
+
+/* Theme preview */
+.theme-preview {
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  margin-top: 12px;
+}
+
+/* Ensure settings checkboxes work in all themes */
+.chk {
+  background: var(--s2);
+  border: 1px solid var(--line);
+}
+
+/* Progress bar for live check */
+.progress-bar {
+  height: 6px;
+  background: var(--line2);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--grad);
+  transition: width 0.3s ease;
+}
+
+/* PWA status indicators */
+.pwa-status {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.pwa-badge {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--s2);
+  border: 1px solid var(--line);
+  color: var(--fg2);
+}
+
+.pwa-badge.ok {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(0,255,156,0.1);
+}
+
+.pwa-badge.warn {
+  border-color: var(--warn);
+  color: var(--warn);
+  background: rgba(255,209,102,0.1);
+}
+
+.pwa-badge.bad {
+  border-color: var(--bad);
+  color: var(--bad);
+  background: rgba(255,92,122,0.1);
+}
+
+/* ------------------------------------------------- trip map, steps, alerts
+   The map is collapsed by default everywhere it appears, so these rules only
+   style a panel the user opened.  Leaflet brings its own class names; they are
+   re-skinned here rather than in a second stylesheet so theme.css stays the only
+   file that decides what this app looks like. */
+.mapslot{margin-top:2px}
+.mapbox{margin-top:10px;border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--s1)}
+.mapleaf{width:100%}
+.mapnote{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:11.5px;color:var(--fg2)}
+.mapswap{margin-left:6px;background:none;border:0;padding:0;color:var(--green);
+  font:inherit;font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline;
+  text-underline-offset:2px}
+.mapswap:active{opacity:.6}
+.mapnote.sm{border-top:1px solid var(--line);line-height:1.45}
+.mapsketchwrap{padding:8px 8px 0}
+.sketch{display:block;border-radius:10px}
+.leaflet-container{background:#05100D;font-family:var(--font-body);font-size:12px}
+.leaflet-control-attribution{background:rgba(8,11,10,.78)!important;color:var(--fg3)!important;font-size:9.5px!important}
+.leaflet-control-attribution a{color:var(--cyan-dim)!important}
+.leaflet-bar a,.leaflet-bar a:hover{background:var(--s2)!important;color:var(--fg)!important;border-color:var(--line2)!important}
+.leaflet-bar a:hover{background:var(--s3)!important}
+.leaflet-tooltip{background:var(--s2)!important;color:var(--fg)!important;border:1px solid var(--line2)!important;box-shadow:none!important;font-size:11px!important;border-radius:7px!important}
+.leaflet-tooltip-top:before{border-top-color:var(--line2)!important}
+/* turn-by-turn: one row per action, the current one lit */
+.steps2{display:flex;flex-direction:column;margin-top:10px;border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.stp{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;background:var(--s1);border-bottom:1px solid var(--line)}
+.stp:last-child{border-bottom:0}
+.stp .sp{flex:0 0 auto;width:25px;height:25px;border-radius:8px;display:grid;place-items:center;background:var(--s2);border:1px solid var(--line2);color:var(--green)}
+.stp.walk .sp{color:var(--fg2)}
+.stp.alight .sp{color:var(--warn)}
+.stp.now{background:linear-gradient(180deg,rgba(0,229,255,.09),transparent)}
+.stp.now .sp{border-color:var(--cyan);color:var(--cyan)}
+.stp b{font-size:12.5px;font-weight:600}
+.viachev{border:0;background:var(--s2);color:var(--text);width:17px;height:15px;border-radius:5px;font-size:9px;line-height:1;cursor:pointer;margin-left:5px;vertical-align:1px;transition:transform .18s}
+.viachev:hover{background:var(--s3,#132018);color:var(--green)}
+.viachev.up{transform:rotate(180deg);color:var(--green)}
+.vialist{margin:5px 0 2px;padding:2px 0 2px 10px;border-left:2px solid var(--line2)}
+.viarow{display:flex;align-items:center;gap:7px;width:100%;text-align:left;background:none;border:0;color:var(--text);font-size:12px;padding:3.5px 6px;border-radius:7px;cursor:pointer;font-family:inherit}
+.viarow:hover{background:rgba(0,255,156,.06)}
+.viarow.now{background:rgba(0,229,255,.10);color:#BFF7FF}
+.vdot{flex:0 0 auto;width:6px;height:6px;border-radius:50%;border:1.4px solid var(--green);background:none}
+.viarow.now .vdot{background:#4CC9FF;border-color:#4CC9FF}
+.viahint{padding:2px 6px 1px;font-size:10.5px}
+/* one compact row for map / steps / alert, so three buttons stay on one line */
+.btnrow.tripctl{gap:6px}
+.btnrow.tripctl .cat{padding:8px 11px;font-size:12px;letter-spacing:.1px}
+/* the journey clock: one bar, every leg to scale */
+.trow{margin-top:8px}
+.tinp{background:var(--s2);border:1px solid var(--line);border-radius:999px;color:var(--fg);
+  padding:7px 12px;font:inherit;font-size:12.5px;font-weight:600;color-scheme:dark;
+  min-width:112px;appearance:none}
+.tinp:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 2px rgba(0,255,156,.16)}
+.sndrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sndrow .cat{flex:0 0 auto}
+.btnrow.tight{gap:6px}
+.btnrow.tight .cat{font-size:12px;padding:7px 11px;display:flex;gap:5px;align-items:baseline}
+.tl{display:flex;gap:3px;margin-top:11px;height:34px;border-radius:9px;overflow:hidden}
+.tlseg{min-width:26px;display:grid;place-items:center;background:var(--s2);border:1px solid var(--line);
+  border-radius:7px;font-size:11px;font-weight:700;color:var(--bg);position:relative;transition:flex-grow .25s}
+.tlseg b{font-variant-numeric:tabular-nums}
+.tlseg.wait{background:repeating-linear-gradient(135deg,rgba(255,209,102,.85) 0 5px,rgba(255,209,102,.5) 5px 10px);
+  border-color:transparent;color:#241a00}
+.tlseg.walk{background:var(--s3);border-style:dashed;color:var(--fg2)}
+.tlseg.allowance{background:repeating-linear-gradient(90deg,var(--s3) 0 4px,transparent 4px 8px);
+  border-style:dotted;color:var(--fg3)}
+.tlseg.bus{background:var(--green)}
+.tlseg.ride.metro{color:#04120c}
+.tlkeys{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
+.tlkey{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;color:var(--fg2)}
+.tlkey i{width:9px;height:9px;border-radius:3px;display:inline-block;flex:0 0 auto}
+/* the floating trip bar: one per hub, above the tab bar */
+.tripbar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(60px + var(--safe-b));
+  width:min(440px,calc(100% - 20px));z-index:70;background:rgba(8,11,10,.93);backdrop-filter:blur(14px);
+  border:1px solid var(--line2);border-radius:16px;padding:9px 11px;box-shadow:0 14px 40px rgba(0,0,0,.6)}
+.tripbar.hot{border-color:var(--warn);box-shadow:0 0 0 1px rgba(255,209,102,.3),0 14px 40px rgba(0,0,0,.6)}
+.tripbar .tb1{display:flex;align-items:center;gap:8px}
+.tripbar .tb1 .grow{flex:1 1 auto;min-width:0}
+.tripbar .tbmeta{margin-top:3px;font-size:11.5px;line-height:1.4;color:var(--dim);
+  display:flex;flex-wrap:wrap;gap:0 6px;align-items:baseline}
+.tripbar .tbmeta b{color:var(--fg2);font-weight:700}
+.tripbar .tb2{display:flex;gap:6px;align-items:center;margin-top:6px;font-size:11.5px;color:var(--warn)}
+.tripbar .tb2 .ico{color:var(--warn)}
+.tripbar .tb3{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;margin-top:5px;line-height:1.45}
+.tripbar .tbwhy{background:none;border:0;padding:0;margin:0;color:var(--green);font:inherit;
+  font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.armwrap{display:inline-flex;align-items:center;flex-wrap:wrap}
+.list .row.act{background:rgba(0,255,156,.09);box-shadow:inset 2px 0 0 var(--green)}
