@@ -137,7 +137,7 @@ export function LiveBus() {
   const busy = buses === null;
   const dead = !busy && (!!err && list.length === 0 || relay === 'none' || relay === 'setup');
   const setupMode = relay === 'setup';
-  const showMap = !busy && !dead;
+  const showMap = !busy;
 
   /* ------------------------------- the map ------------------------------- */
   useEffect(() => {
@@ -204,7 +204,7 @@ export function LiveBus() {
               follow the deploy steps in <b>KEY-SAFETY-GUIDE.md</b> (it ships with the project).</p>
           </div>)}
 
-        {!busy && !dead && (
+        {!busy && (
           <div style={{ height: '52vh', minHeight: 300, position: 'relative', background: 'var(--s1)' }}>
             <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
           </div>)}
