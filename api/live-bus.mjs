@@ -161,20 +161,13 @@ export function decodeGtfsRt(buf) {
 export function normRoute(s) {
   let u = String(s || '').toUpperCase().trim();
   if (!u) return null;
-  u = u.replace(/\([^)]*\)/g, ' ');                 // drop (NS) (T) etc
+  u = u.replace(/\([^)]*\)/g, ' ');                 // (NS) (T) etc
   let toks = u.split(/\s+/).filter(Boolean);
-  toks[0] = toks[0].replace(/^0+(?=\d)/, '');       // strip leading zeros
-  const head = toks[0] || '';
-  if (/EXT$/.test(head)) {
-    // '0118EXT ... Ext' — drop the repeated EXT token
-    toks = [head, ...toks.slice(1).filter((t) => t !== 'EXT')];
-  } else {
-    // '740 Ext' -> '740EXT'
-    toks = toks.filter((t) => t !== 'STL');
-    if (toks.length > 1 && toks[toks.length - 1] === 'EXT') toks = [toks.join('')];
-  }
-  const out = toks.join('').replace(/[^A-Z0-9]/g, '');
-  return out || null;
+  toks = toks.filter((t, i) => i === 0 || (t !== 'EXT' && t !== 'STL'));
+  let id = toks.join('').replace(/[^A-Z0-9]/g, '');
+  if (!id) return null;
+  id = id.replace(/^0+(?=[A-Z0-9])/, '');             // 0740->740, 0OMS->OMS
+  return id;
 }
 
 /* ================================================================= handler */

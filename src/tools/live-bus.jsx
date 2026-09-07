@@ -28,17 +28,14 @@ const MOVING_KMH = 3;         // above this an estimated speed counts as moving
 /* ---------------------------------------------------------------- helpers */
 function normRoute(s) {
   let u = String(s || '').toUpperCase().trim();
-  if (!u) return '';
+  if (!u) return null;
   u = u.replace(/\([^)]*\)/g, ' ');
   let toks = u.split(/\s+/).filter(Boolean);
-  toks[0] = toks[0].replace(/^0+(?=\d)/, '');
-  const head = toks[0] || '';
-  if (/EXT$/.test(head)) toks = [head, ...toks.slice(1).filter((t) => t !== 'EXT')];
-  else {
-    toks = toks.filter((t) => t !== 'STL');
-    if (toks.length > 1 && toks[toks.length - 1] === 'EXT') toks = [toks.join('')];
-  }
-  return toks.join('').replace(/[^A-Z0-9]/g, '');
+  toks = toks.filter((t, i) => i === 0 || (t !== 'EXT' && t !== 'STL'));
+  let id = toks.join('').replace(/[^A-Z0-9]/g, '');
+  if (!id) return null;
+  id = id.replace(/^0+(?=[A-Z0-9])/, '');
+  return id;
 }
 const ago = (ts) => {
   if (!ts) return '';
@@ -90,6 +87,7 @@ export function LiveBus() {
   const [q, setQ] = useState('');
   const [fitTick, setFitTick] = useState(0);
   const [mapReady, setMapReady] = useState(false);
+  const [staticHits, setStaticHits] = useState([]);
   const fittedRef = useRef('');
   const [zoom, setZoom] = useState(11);
   const [selBus, setSelBus] = useState(null);      // drill-down plate
@@ -333,18 +331,55 @@ export function LiveBus() {
   const movingAll = useMemo(() => all.filter((b) => b.spd != null && b.spd >= MOVING_KMH).length, [all]);
   const freshAll = useMemo(() => all.filter((b) => b.ts && Date.now() - b.ts * 1000 <= STALE_MS).length, [all]);
 
+  /* Static route directory lookup — typed route may be an offline-only family
+     (OMS+, 0740 …). Matches are shown under the live results so the user can
+     open the corridor even when no bus broadcasts right now. */
+  useEffect(() => {
+    let alive = true;
+    setStaticHits([]);
+    const s = q.trim();
+    if (s.length < 2) return;
+    const want = normRoute(s);
+    if (!want) return;
+    (async () => {
+      try {
+        const core = await import('../core/bus-route');
+        const ROUTES = core.ROUTES || [];
+        const rec = (i) => (typeof i === 'number' ? (core.STOPS || [])[i] : null);
+        const fam = new Map();
+        for (const r of ROUTES) {
+          const n = normRoute(r.r);
+          if (n === want) {
+            const g = fam.get(n) || { norm: n, display: r.r, lines: new Map() };
+            if (r.r.length < g.display.length) g.display = r.r;
+            const pair = `${r.f || '?'}~${r.t || '?'}`;
+            if (!g.lines.has(pair)) g.lines.set(pair, { from: r.f || '?', to: r.t || '?' });
+            fam.set(n, g);
+          }
+        }
+        if (!alive) return;
+        setStaticHits([...fam.values()].slice(0, 3).map((g) => ({
+          id: g.display, norm: g.norm,
+          routes: [...g.lines.values()].slice(0, 2),
+        })));
+      } catch { /* offline or no match */ }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+
   const suggestions = useMemo(() => {
     const s = q.trim();
     if (!s) return [];
     const sq = normRoute(s);
     const fromLive = routeCounts.filter((r) => {
       const n = normRoute(r.id); return !!n && (n.includes(sq) || r.id.includes(s));
-    }).slice(0, 5);
+    }).slice(0, 4);
     const out = fromLive.map((r) => ({ id: r.id, n: r.n, kind: 'live' }));
-    // always also offer the static corridor for exactly what they typed
-    if (s.length >= 2) out.push({ id: s.toUpperCase(), n: 0, kind: 'corridor', raw: s });
-    return out.slice(0, 6);
-  }, [q, routeCounts]);
+    // static families that exactly match what they typed — incl. offline-only
+    for (const h of staticHits) out.push({ id: h.id, norm: h.norm, routes: h.routes, kind: 'static' });
+    return out.slice(0, 7);
+  }, [q, routeCounts, staticHits]);
 
   const focusStats = useMemo(() => {
     if (!focus.length) return null;
@@ -413,15 +448,18 @@ export function LiveBus() {
             {suggestions.length > 0 && (
               <div style={{ position: 'absolute', zIndex: 50, left: 16, right: 16, top: 'calc(100% - 2px)', background: 'var(--s2)',
                 border: '1px solid var(--line2)', borderRadius: 14, boxShadow: '0 18px 40px -18px #000', overflow: 'hidden' }}>
-                {suggestions.map((s) => (
-                  <button key={s.id} onMouseDown={(e) => { e.preventDefault(); pickRoute(s.id); }}
+                {suggestions.map((s, si) => (
+                  <button key={s.id + si} onMouseDown={(e) => { e.preventDefault(); pickRoute(s.id); }}
                     style={{ display: 'flex', width: '100%', gap: 10, alignItems: 'center', padding: '10px 14px', background: 'none',
                       border: 0, borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', color: 'var(--fg)' }}>
                     <b style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>{s.id}</b>
                     {s.kind === 'live'
                       ? <span className="tag g" style={{ fontWeight: 700 }}>{s.n} live now</span>
-                      : <span className="tag" style={{ color: 'var(--cyan)', borderColor: 'rgba(76,201,255,.4)' }}>static corridor · 0 live abhi</span>}
-                    <Icon n="right" size={14} style={{ color: 'var(--fg3)' }} />
+                      : <span className="tag" style={{ color: 'var(--cyan)', borderColor: 'rgba(76,201,255,.4)' }}>static · 0 live abhi</span>}
+                    <span className="dim sm" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
+                      {s.kind === 'static' && s.routes && s.routes.length ? `${s.routes[0].from} → ${s.routes[0].to}` : ''}
+                    </span>
+                    <Icon n="right" size={14} style={{ color: 'var(--fg3)', flex: '0 0 auto' }} />
                   </button>))}
               </div>)}
           </div>)}
