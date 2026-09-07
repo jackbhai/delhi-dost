@@ -163,6 +163,11 @@ export const Phone = (p) => <S {...p}><path d="M5.6 3.8h3.4l1.7 4.4-2.2 1.7a14.6
 export const WhatsApp = (p) => <S {...p} fill="currentColor" sw={0}><path d="M12 2.8a9.2 9.2 0 0 0-7.9 13.9L2.7 21.3l4.8-1.3A9.2 9.2 0 1 0 12 2.8zm0 2.3a6.9 6.9 0 0 1 5.9 10.5l.9 3.3-3.4-.9A6.9 6.9 0 1 1 12 5.1zm-2.6 3.4c-.2 0-.6.1-.9.5-.4.5-1.3 1.3-1.3 3.1s1.4 3.6 1.6 3.9c.2.2 2.7 4.2 6.6 5.7 3.3 1.3 3.9 1 4.7 1 .7-.1 2.4-1 2.7-2 .4-1 .4-1.8.3-2-.1-.2-.4-.3-.8-.5l-2.8-1.4c-.4-.2-.7-.2-1 .2l-1.2 1.5c-.2.3-.5.2-.9.1-.5-.2-2-1-3.4-2.4-1.3-1.3-2-2.6-2.3-3-.2-.4 0-.5.1-.7l.5-.7c.2-.2.2-.4.1-.6l-1.3-3.1c-.2-.6-.5-.5-.8-.5z" /></S>;
 export const Copy = (p) => <S {...p}><rect x="8.5" y="8.5" width="11" height="11" rx="2.2" /><path d="M5.5 15.5H4.8A2.3 2.3 0 0 1 2.5 13V4.8a2.3 2.3 0 0 1 2.3-2.3h8.2a2.3 2.3 0 0 1 2.3 2.3v.7" /></S>;
 export const Sms = (p) => <S {...p}><path d="M3.6 5.4h16.8v10.4H9.2L5 20v-4.2H3.6z" /><path d="M7.6 9.6h8.8M7.6 12.6h5.2" /></S>;
+
+export const Users = (p) => <S {...p}><circle cx="9" cy="8.5" r="3.2" /><path d="M3.4 19.4c.6-3 2.9-4.6 5.6-4.6s5 1.6 5.6 4.6M16 5.6a3.2 3.2 0 0 1 0 5.9M17.7 15.2c1.7.6 2.7 1.9 3 4.2" /></S>;
+export const ArrowU = (p) => <S {...p}><path d="M12 19V6M5.6 11.6 12 5l6.4 6.6" /></S>;
+export const Right = (p) => <S {...p}><path d="M9.5 5.5 16 12l-6.5 6.5" /></S>;
+export const Dot = (p) => <S {...p} fill="currentColor" sw={0}><circle cx="12" cy="12" r="4.4" /></S>;
 export const Star2 = Star;
 
 /** Registry so tools can be declared with a plain string name. */
@@ -184,6 +189,7 @@ export const ICONS = {
   image: Image, save: Save, mail: Mail, pen: Pen, grid: Grid, star: Star, staron: StarOn,
   wheat: Wheat, mosque: Mosque, info: Info, check: Check, x: X, chevron: Chevron,
   back: Back, refresh: Refresh, filter: Filter, bank: Bank, box: Box,
+  users: Users, arrowu: ArrowU, right: Right, dot: Dot,
   repeat: Repeat, repeatone: RepeatOne, shuffle: Shuffle,
   volume: Volume, volumeoff: VolumeOff, wave: Wave, bolt: Bolt, moon: Moon,
   cast: Cast, expand: Expand, max: Max, min: Min, down: Down, up: Up, plus: Plus, trash: Trash, queue: Queue, mic: Mic,

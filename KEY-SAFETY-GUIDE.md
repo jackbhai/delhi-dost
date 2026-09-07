@@ -105,3 +105,12 @@ OTDLIVE_KEY=yourkey node api/live-bus.mjs  # (works as a function file; run via 
   fresh and never stored on a visitor's device beyond the current screen.
 - `src/core/live-check.js` — the Settings health panel includes a "Live Buses
   Relay" check that tells you exactly which state the setup is in.
+
+
+## PNR relay keys
+
+Same rules as the live-bus key: `RAILKIT_API_KEY` and `RAPIDAPI_KEY` are
+server-only env vars on Vercel — never in the repo, never in client code, never
+in the built bundle. PNR queries are logged nowhere. If you stop using a key,
+remove it from the project's env settings and (for paid services) revoke it in
+the provider dashboard.

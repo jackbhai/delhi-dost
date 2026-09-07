@@ -15,7 +15,7 @@ export function Hub({ icon, title, sub, tabs, initial = 0 }) {
   const [i, setI] = useState(initial);
   const Active = tabs[i].C;
   return (<>
-    <div className="hubhead">
+    <div className="hubhead" data-m={icon}>
       <div className="hubico"><Icon n={icon} size={26} /></div>
       <div style={{ minWidth: 0 }}>
         <b>{title}</b>

@@ -320,3 +320,79 @@ body { font-variant-numeric: tabular-nums; }
   .dost-hero::before { animation: none; }
   .tile::after { display: none; }
 }
+
+/* ============================================================
+   Delhi DOST — round 2: tool screens
+   mode-tinted hub headers, glass tab strips, journey timeline
+   caps, note accents, semantic PNR status chips
+   ============================================================ */
+
+/* ------------------------------ hub headers tinted per mode */
+.hubhead { position: relative; display: flex; align-items: center; gap: 13px; padding: 6px 2px 12px; }
+.hubhead::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, var(--hub, rgba(255,176,32,.35)), transparent 78%);
+}
+.hubico {
+  width: 56px; height: 56px; border-radius: 18px;
+  border-color: color-mix(in srgb, var(--hub, #FFB020) 38%, transparent);
+  color: var(--hub, var(--green));
+  background:
+    radial-gradient(circle at 28% 16%, rgba(255,255,255,.14), transparent 46%),
+    radial-gradient(circle at 32% 20%, color-mix(in srgb, var(--hub, #FFB020) 30%, transparent),
+      color-mix(in srgb, var(--hub, #FFB020) 8%, transparent) 62%, var(--s3));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 10px 22px -12px color-mix(in srgb, var(--hub, #FFB020) 55%, transparent);
+}
+.hubhead[data-m="bus"]   { --hub: #FFB020; }
+.hubhead[data-m="metro"] { --hub: #4CC9FF; }
+.hubhead[data-m="train"] { --hub: #FF8A5C; }
+.hubhead[data-m="map"]   { --hub: #9E8CFF; }
+.hubhead[data-m="globe"] { --hub: #2FE39B; }
+.hubhead b { font-family: var(--font-display); font-size: 22px; letter-spacing: .3px; line-height: 1.1; }
+
+/* ------------------------------ glass tab strip */
+.tabs {
+  border-radius: 16px; gap: 4px; padding: 4px;
+  background: color-mix(in srgb, var(--s2) 62%, var(--bg));
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.tab { padding: 9px 10px; gap: 6px; font-size: 12.3px; color: var(--fg2); }
+.tab .ico { color: var(--fg3); }
+.tab.on { color: #170800; }
+.tab.on .ico { color: #170800; filter: none; }
+
+/* ------------------------------ journey timeline caps */
+.tl { border-radius: 12px; padding: 2px; background: color-mix(in srgb, var(--s2) 70%, var(--bg)); border: 1px solid var(--line); }
+.tlseg { border-radius: 7px; border: 0; min-width: 30px; }
+.tlkey i { box-shadow: 0 0 6px currentColor; }
+
+/* ------------------------------ note accents */
+.note { border-radius: 12px; border-left: 3px solid rgba(255,176,32,.7); }
+.note.warn { border-left-color: rgba(255,209,102,.85); }
+.note.bad { border-left-color: rgba(255,92,122,.9); }
+
+/* ------------------------------ PNR semantic chips */
+.tone {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 800; letter-spacing: .6px;
+  padding: 4.5px 10px; border-radius: 10px; border: 1px solid var(--line2);
+  background: var(--s2);
+}
+.tone i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 7px currentColor; }
+.tone em { font-style: normal; font-family: var(--font-body); font-size: 8.4px; letter-spacing: .9px;
+  font-weight: 750; text-transform: uppercase; opacity: .8; }
+.tone.big { padding: 6px 12px; font-size: 13px; border-radius: 11px; }
+.tone-ok, .tone.ok { color: #2FE39B; border-color: rgba(47,227,155,.38); background: rgba(47,227,155,.09); }
+.tone-wait, .tone.wait { color: #FFC531; border-color: rgba(255,197,49,.4); background: rgba(255,197,49,.09); }
+.tone-muted, .tone.muted { color: #93A9CE; border-color: rgba(147,169,206,.32); background: rgba(147,169,206,.09); }
+.tone-bad, .tone.bad { color: var(--bad); border-color: rgba(255,92,122,.4); background: rgba(255,92,122,.09); }
+.tone-idle, .tone.idle { color: var(--fg3); }
+.tone-idle em { opacity: 1; }
+
+/* primary buttons: crisp top light, richer press */
+.btn:not(.ghost) { box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 10px 22px -12px rgba(255,140,60,.75); }
+.btn:not(.ghost):active { filter: brightness(.96); }
+
+/* spinner in small contexts */
+.spin { border-top-color: var(--green); }

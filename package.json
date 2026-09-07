@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test:livebus": "node api/live-bus.test.mjs"
+    "test:livebus": "node api/live-bus.test.mjs",
+    "test:pnr": "node --test api/pnr.test.mjs"
   },
   "engines": {
     "node": ">=20.19.0"
@@ -15,6 +16,7 @@
   "dependencies": {
     "@vitejs/plugin-react": "^6.1.0",
     "leaflet": "^1.9.4",
+    "railkit": "^5.0.2",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "vite": "^8.2.2"

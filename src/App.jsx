@@ -9,6 +9,7 @@ import { TrainJourney } from './tools/train-journey';
 import { Hub } from './tools/travel-hub';
 import { Settings } from './tools/settings';
 import { EmergencyDirectory } from './tools/help-dir';
+import { PnrStatus } from './tools/pnr';
 
 import { Spin } from './ui/kit';
 import { Icon } from './ui/icons';
@@ -39,6 +40,7 @@ const TOOLS = [
   // ---------------- Travel
   { id: 'bus',      n: 'Bus',           i: 'bus',       c: 'Travel', t: 'off', d: 'Every Delhi route · timetables · fares', C: BusHub },
   { id: 'train',    n: 'Train',         i: 'train',     c: 'Travel', t: 'live', d: 'Live running status & schedules',        C: TrainHub },
+  { id: 'pnr',      n: 'PNR Status',    i: 'ticket',    c: 'Travel', t: 'live', d: 'PNR check — CNF/RAC/WL, coach, berth, chart', C: PnrStatus },
   { id: 'metro',    n: 'Metro',         i: 'metro',     c: 'Travel', t: 'off', d: 'Every station · fares · first & last train', C: MetroHub },
   { id: 'livebus',  n: 'Live Buses',    i: 'map',       c: 'Travel', t: 'live', d: 'Buses moving across Delhi, on the map',  C: LiveBus },
   { id: 'journey',  n: 'Plan Journey',  i: 'compass',   c: 'Travel', t: 'off', d: 'Metro + bus combined trip',               C: MultiModal },

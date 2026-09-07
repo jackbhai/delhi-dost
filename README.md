@@ -32,6 +32,8 @@ Delhi ka apna travel companion — **Bus · Metro · Train · Live Buses · Jour
 ```
 api/live-bus.mjs          # serverless relay — the ONLY place the live key lives
 api/live-bus.test.mjs     # protobuf round-trip test (npm run test:livebus)
+api/pnr.mjs               # PNR relay — fallback chain of independent sources
+api/pnr.test.mjs          # chain/normaliser tests (npm run test:pnr)
 public/
   sw.js                   # service worker (network-first shell)
   manifest.webmanifest    # PWA manifest (Delhi DOST)
@@ -79,6 +81,24 @@ How the key stays safe, what to do if something fails, and every security detail
 > Note: maps show a small "© OpenStreetMap" credit — that is the map tiles'
 > licence requirement and cannot be removed; it applies to every app using
 > those free tiles. Nothing else about data origins is shown anywhere.
+
+### PNR Status relay (same Vercel project, optional)
+
+The **PNR Status** tile needs the same relay pattern. It asks the relay, and the
+relay tries its configured channels **in order — first success wins**, so if one
+channel is down or keyless the next is tried automatically:
+
+| Channel | Env var(s) | Notes |
+|---|---|---|
+| RailKit | `RAILKIT_API_KEY` | documented, current (free tier) |
+| RapidAPI irctc1-style | `RAPIDAPI_KEY` + `RAPIDAPI_PNR_HOST` (default `irctc1.p.rapidapi.com`) | if you have a subscription |
+| Keyless fallback | — | best-effort, auto-skips when it fails |
+
+Skip any channel by not setting its vars — no key, no call, no harm. Every
+answer is normalised into one shape; nothing about the channels appears in the
+app UI. PNRs are never logged, never stored (75 s in-memory cache only), and
+the relay returns `503 setup` / `502 upstream` / `404 notfound` / `400 invalid`
+so the UI can say the right thing.
 
 ## Notes
 

@@ -31,7 +31,7 @@ jobs:
         run: npm ci
 
       - name: Unit test (live-bus decoder)
-        run: npm run test:livebus
+        run: npm run test:livebus && npm run test:pnr
 
       - name: Build
         run: BASE_PATH=/delhi-dost/ npm run build
