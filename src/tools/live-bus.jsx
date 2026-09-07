@@ -1,29 +1,32 @@
 /**
  * Live Buses — route-centric Delhi bus tracker.
  *
- * The browser only ever talks to the app's own relay (/api/live-bus); the key
- * lives in that serverless function and never reaches the client.
+ * LAYOUT (v3)
+ *  · header + search + route chips = one control card
+ *  · the map lives in its OWN collapsible card, fully separate from search
+ *  · under the map, a text "route track" shows every live bus along the
+ *    route's stops (Uttam Nagar → Janakpuri → Tilak Nagar …) with animated
+ *    bus dots — so positions are readable with the map collapsed/off
  *
  * HOW IT WORKS (honest about the feed's nature)
- * · the feed broadcasts positions + route id + trip id + report timestamps.
- *   It carries NO speed, NO bearing and NO direction id — so nothing here
- *   invents those as "live" values. Speeds and headings are ESTIMATED on this
- *   device by comparing a bus's successive reported positions (shown with a
- *   "~" and labelled as estimates).
- * · Route numbers are matched loosely ('0740' == '740', 'OMS(+)' == 'OMS') so
- *   a static route family and the live broadcast find each other; when the
- *   chosen route is known offline, its corridor is drawn faintly on the map
- *   and its endpoints shown — even when no bus is broadcasting right now.
- * · Stale reports (older than ~3 minutes) are dimmed, never deleted.
+ * · the feed broadcasts position + route id + trip id + report timestamp.
+ *   It carries NO speed, bearing or direction — speeds/headings are estimated
+ *   on this device from successive reports and shown with "~".
+ * · Route ids are matched loosely ('0740' == '740', 'OMS(+)' == 'OMS'); when
+ *   the route is known offline its corridor is drawn and each live bus is
+ *   snapped onto it, giving stop-level text ("ab agla: Janakpuri West",
+ *   "% of route done") — an estimate, never an official position.
+ * · Stale reports (>3 min) are dimmed, never deleted.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ui/icons';
 import { Card } from '../ui/kit';
 
-const FULL_MS = 30000;        // whole-Delhi refresh
-const ROUTE_MS = 12000;       // one-route refresh
-const STALE_MS = 180000;      // report older than this = stale
-const MOVING_KMH = 3;         // above this an estimated speed counts as moving
+const FULL_MS = 30000;
+const ROUTE_MS = 12000;
+const STALE_MS = 180000;
+const MOVING_KMH = 3;
+const SNAP_MAX_M = 4000;      // a bus farther than this from the corridor = unmatched
 
 /* ---------------------------------------------------------------- helpers */
 function normRoute(s) {
@@ -34,7 +37,7 @@ function normRoute(s) {
   toks = toks.filter((t, i) => i === 0 || (t !== 'EXT' && t !== 'STL'));
   let id = toks.join('').replace(/[^A-Z0-9]/g, '');
   if (!id) return null;
-  id = id.replace(/^0+(?=[A-Z0-9])/, '');
+  id = id.replace(/^0+(?=[A-Z0-9])/, '');   // 0740->740 · 0OMS->OMS
   return id;
 }
 const ago = (ts) => {
@@ -47,13 +50,12 @@ const ago = (ts) => {
 };
 const clock = (sec) => {
   if (!sec) return '';
-  const d = new Date(sec * 1000);
-  return d.toTimeString().slice(0, 5);
+  return new Date(sec * 1000).toTimeString().slice(0, 5);
 };
 const dirText = (deg) => {
   if (deg == null) return '—';
   const C = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
-  return C[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+  return C[Math.round((((deg % 360) + 360) % 360) / 45) % 8];
 };
 const haversineM = (a, b) => {
   const R = 6371000, dLa = (b.lat - a.lat) * Math.PI / 180, dLo = (b.lon - a.lon) * Math.PI / 180;
@@ -66,34 +68,114 @@ const bearing = (a, b) => {
     - Math.sin(a.lat * Math.PI / 180) * Math.cos(b.lat * Math.PI / 180) * Math.cos((b.lon - a.lon) * Math.PI / 180);
   return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 };
-
+const shortName = (n) => String(n || '').replace(/\(T\)$/i, '').replace(/ Terminal$/i, '').trim();
+/** Compact display label: strip terminal markers + alias pairs ("A / B" -> "A"). */
+const label = (n) => {
+  let s = shortName(n);
+  const slash = s.indexOf('/');
+  if (slash > 0 && /^[A-Z0-9]/.test(s)) s = s.slice(0, slash);
+  return s.trim();
+};
 const PALETTE = ['#FFB020', '#4CC9FF', '#FF5D73', '#2FE39B', '#B98BFF', '#FF8A5C', '#FFD166', '#00C2D1', '#F06292', '#A8E05F'];
-
 async function fetchJson(url, signal) {
   const r = await fetch(url, { signal, headers: { accept: 'application/json' } });
   if (!r.ok) throw new Error(String(r.status));
   return r.json();
 }
 
+/* --------------------------- corridor geometry --------------------------- */
+/** Load the static corridor family for a route (unique directions only). */
+async function corridorFor(route) {
+  const core = await import('../core/bus-route');
+  const ROUTES = core.ROUTES || [], STOPS = core.STOPS || [];
+  const seen = new Set(); const lines = [];
+  for (const r of ROUTES) {
+    if (normRoute(r.r) !== normRoute(route)) continue;
+    const pair = `${r.f || '?'}~${r.t || '?'}`;
+    if (seen.has(pair)) continue; seen.add(pair);
+    const raw = (r.s || []).map((i) => (typeof i === 'number' && STOPS[i]) ? STOPS[i] : null).filter(Boolean);
+    if (raw.length < 2) continue;
+    const stops = []; const cum = [0]; let km = 0;
+    for (let i = 0; i < raw.length; i++) {
+      if (i > 0) km += haversineM(raw[i - 1], raw[i]);
+      stops.push({ n: raw[i].n, lat: raw[i].lat, lon: raw[i].lon });
+      cum.push(Math.round(km));
+    }
+    lines.push({ from: r.f, to: r.t, stops, cum, total: Math.max(km, 1) });
+  }
+  return { norm: normRoute(route), lines };
+}
+
+/** Snap a point to a corridor line -> { d(m), i(seg), t(0..1), mAlong }. */
+function snapLine(line, lat, lon) {
+  const cm = Math.cos(lat * Math.PI / 180), K = 111320;
+  const X = (p) => ({ x: p.lon * cm, y: p.lat });
+  const p = X({ lat, lon });
+  let best = { d: Infinity, i: -1, t: 0 };
+  for (let i = 0; i < line.stops.length - 1; i++) {
+    const a = X(line.stops[i]), b = X(line.stops[i + 1]);
+    const abx = b.x - a.x, aby = b.y - a.y;
+    const len2 = abx * abx + aby * aby || 1e-9;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * abx + (p.y - a.y) * aby) / len2));
+    const qx = a.x + abx * t, qy = a.y + aby * t;
+    const d = Math.hypot(p.x - qx, p.y - qy) * K;
+    if (d < best.d) best = { d, i, t };
+  }
+  return best;
+}
+function busOnLine(line, lat, lon) {
+  const s = snapLine(line, lat, lon);
+  if (!line.stops[s.i] || !line.stops[s.i + 1]) return null;
+  const mAlong = line.cum[s.i] + s.t * (line.cum[s.i + 1] - line.cum[s.i]);
+  return {
+    d: s.d, seg: s.i, t: s.t,
+    p: Math.max(0, Math.min(1, mAlong / line.total)),
+    prev: line.stops[s.i], next: line.stops[s.i + 1],
+    left: line.stops.length - 1 - s.i,
+  };
+}
+
+/** Rail sample stops, spaced ~equally along the corridor (≤13 labels). */
+function sampleStops(line, max = 13) {
+  const n = Math.min(max, line.stops.length);
+  if (n === line.stops.length) return line.stops.map((s, i) => ({ ...s, p: i / (line.stops.length - 1) }));
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const target = (line.total * k) / (n - 1);
+    let i = 0;
+    while (i < line.stops.length - 2 && line.cum[i + 1] < target) i++;
+    const seg = line.cum[i + 1] - line.cum[i] || 1;
+    const t = Math.max(0, Math.min(1, (target - line.cum[i]) / seg));
+    const mix = (a, b) => a + (b - a) * t;
+    out.push({
+      n: line.stops[i].n, lat: mix(line.stops[i].lat, line.stops[i + 1].lat),
+      lon: mix(line.stops[i].lon, line.stops[i + 1].lon),
+      p: k / (n - 1),
+    });
+  }
+  return out;
+}
+
 /* ------------------------------------------------------------------ tool */
 export function LiveBus() {
-  const [buses, setBuses] = useState(null);        // full Delhi list
+  const [buses, setBuses] = useState(null);
   const [at, setAt] = useState(null);
   const [err, setErr] = useState('');
-  const [relay, setRelay] = useState(null);        // null | 'none' | 'setup'
-  const [route, setRoute] = useState('');          // focused route (raw user form)
+  const [relay, setRelay] = useState(null);
+  const [route, setRoute] = useState('');
   const [routeBuses, setRouteBuses] = useState(null);
   const [routeErr, setRouteErr] = useState('');
   const [q, setQ] = useState('');
   const [fitTick, setFitTick] = useState(0);
-  const [mapReady, setMapReady] = useState(false);
-  const [staticHits, setStaticHits] = useState([]);
-  const fittedRef = useRef('');
   const [zoom, setZoom] = useState(11);
-  const [selBus, setSelBus] = useState(null);      // drill-down plate
-  const [corridor, setCorridor] = useState(null);  // static match { family, lines, routes }
-  const [corridorErr, setCorridorErr] = useState('');
+  const [selBus, setSelBus] = useState(null);
   const [busy, setBusy] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapShow, setMapShow] = useState(true);
+  const [corr, setCorr] = useState(null);       // corridor family
+  const [corrErr, setCorrErr] = useState('');
+  const [dirIdx, setDirIdx] = useState(0);      // selected corridor direction
+  const [staticHits, setStaticHits] = useState([]);
 
   const boxRef = useRef(null);
   const mapRef = useRef(null);
@@ -101,37 +183,46 @@ export function LiveBus() {
   const markerLayer = useRef(null);
   const corridorLayer = useRef(null);
   const popupRef = useRef(null);
-  const movRef = useRef(new Map());                // id -> last fix
+  const movRef = useRef(new Map());
   const routeQRef = useRef('');
+  const busesRef = useRef(null);
+  const mapShowRef = useRef(true);
 
   /* ------------------------------ whole-Delhi polling -------------------- */
   useEffect(() => {
-    let alive = true; let timer = null;
-    const tick = async () => {
+    let alive = true; let timer = null; let stopped = false;
+    const tick = async (isRetry) => {
       const ctl = new AbortController();
-      const to = setTimeout(() => ctl.abort(), 14000);
+      const to = setTimeout(() => ctl.abort(), 18000);
       try {
         const d = await fetchJson('/api/live-bus', ctl.signal);
-        if (!alive) return;
-        setBuses(d.buses || []); setAt(Date.now()); setErr(''); setRelay(null); setBusy(false);
+        if (!alive || stopped) return;
+        setBuses(d.buses || []); setAt(Date.now());
+        setErr(d.stale ? 'stale' : ''); setRelay(null); setBusy(false);
       } catch (e) {
-        if (!alive) return;
+        if (!alive || stopped) return;
         const st = e && e.message;
-        if (st === '404' || st === '503') { setRelay(st === '503' ? 'setup' : 'none'); alive = false; clearInterval(timer); setBusy(false); return; }
-        setErr('unreachable'); setBusy(false);
+        if (st === '404' || st === '503') { setRelay(st === '503' ? 'setup' : 'none'); stopped = true; clearInterval(timer); setBusy(false); return; }
+        const haveData = busesRef.current && busesRef.current.length;
+        if (!haveData && !isRetry) {
+          setTimeout(() => { if (alive && !stopped) tick(true); }, 2500);
+          setTimeout(() => { if (alive && !stopped) tick(true); }, 6500);
+        }
+        if (haveData) setErr('refresh-failed');
+        setBusy(false);
       } finally { clearTimeout(to); }
     };
-    tick();
-    timer = setInterval(tick, FULL_MS);
-    const vis = () => { if (!document.hidden && alive && !routeQRef.current) tick(); };
+    tick(false);
+    timer = setInterval(() => { if (!routeQRef.current) tick(false); }, FULL_MS);
+    const vis = () => { if (!document.hidden && alive && !routeQRef.current) tick(false); };
     document.addEventListener('visibilitychange', vis);
-    return () => { alive = false; clearInterval(timer); document.removeEventListener('visibilitychange', vis); };
+    return () => { alive = false; stopped = true; clearInterval(timer); document.removeEventListener('visibilitychange', vis); };
   }, []);
 
   /* ------------------------------ route polling -------------------------- */
   useEffect(() => {
     routeQRef.current = route;
-    if (!route) { setRouteBuses(null); setRouteErr(''); return; }
+    if (!route) { setRouteBuses(null); setRouteErr(''); setCorr(null); return; }
     let alive = true; let timer = null;
     const tick = async () => {
       const ctl = new AbortController();
@@ -156,54 +247,72 @@ export function LiveBus() {
     for (const b of list) {
       if (!b.lat || !b.lon || !b.ts) continue;
       const prev = mov.get(b.id);
-      const rec = { lat: b.lat, lon: b.lon, ts: now, age: now - b.ts * 1000 };
       if (prev) {
         const dt = (now - prev.ts) / 1000;
-        const dist = haversineM(prev, rec);
+        const dist = haversineM(prev, b);
         if (dt >= 8 && dt <= 90 && dist >= 12 && now - b.ts * 1000 < 60000) {
           const kmh = Math.min(120, (dist / dt) * 3.6);
-          b.spd = prev.kmh ? (prev.kmh * 0.6 + kmh * 0.4) : kmh;
-          b.hdg = bearing(prev, rec);
+          b.spd = prev.kmh ? prev.kmh * 0.6 + kmh * 0.4 : kmh;
+          b.hdg = bearing(prev, b);
           b.dist = Math.round(dist);
         }
       }
-      mov.set(b.id, { ...rec, kmh: b.spd });
-    }
-    if (mov.size > 30000) { // bounded memory: drop entries we no longer need
-      const keep = new Set(list.map((x) => x.id));
-      for (const k of mov.keys()) if (!keep.has(k)) mov.delete(k);
+      mov.set(b.id, { lat: b.lat, lon: b.lon, ts: now, kmh: b.spd });
     }
     return list;
   }
   useEffect(() => { if (buses) foldMotion(buses); }, [buses]);
   useEffect(() => { if (routeBuses) foldMotion(routeBuses); }, [routeBuses]);
 
-  /* ------------------------------ static corridor ------------------------ */
+  /* ------------------------------ corridor load -------------------------- */
   useEffect(() => {
     let alive = true;
-    setCorridor(null); setCorridorErr('');
+    setCorr(null); setCorrErr(''); setDirIdx(0);
     if (!route) return;
-    const norm = normRoute(route);
     (async () => {
       try {
-        const core = await import('../core/bus-route');
-        const ROUTES = core.ROUTES || [];
-        const STOPS = core.STOPS || [];
-        const rec = (i) => (typeof i === 'number' ? STOPS[i] : null);
-        const hits = ROUTES.filter((r) => normRoute(r.r) === norm);
-        if (!hits.length || !alive) return;
-        const lines = hits.map((r) => ({
-          from: r.f, to: r.t, pts: (r.s || []).map((i) => { const s = rec(i); return s && s.lat != null ? [s.lat, s.lon] : null; }).filter(Boolean),
-        })).filter((l) => l.pts.length > 1);
-        if (alive) setCorridor({ norm, lines });
-      } catch { if (alive) setCorridorErr('route map unavailable'); }
+        const c = await corridorFor(route);
+        if (alive && c && c.lines.length) setCorr(c);
+        else if (alive) setCorrErr('static');
+      } catch { if (alive) setCorrErr('static'); }
     })();
     return () => { alive = false; };
   }, [route]);
 
+  /* ------------------------------ static search -------------------------- */
+  useEffect(() => {
+    let alive = true;
+    setStaticHits([]);
+    const s = q.trim();
+    if (s.length < 2) return;
+    const want = normRoute(s);
+    if (!want) return;
+    (async () => {
+      try {
+        const core = await import('../core/bus-route');
+        const ROUTES = core.ROUTES || [];
+        const fam = new Map();
+        for (const r of ROUTES) {
+          const n = normRoute(r.r);
+          if (!n) continue;
+          if (n === want || (s.length >= 3 && (n.includes(want) || want.includes(n)))) {
+            const g = fam.get(n) || { norm: n, display: r.r, dirs: new Map() };
+            if (r.r.length < g.display.length) g.display = r.r;
+            const pair = `${r.f || '?'}~${r.t || '?'}`;
+            if (!g.dirs.has(pair)) g.dirs.set(pair, { from: r.f || '?', to: r.t || '?' });
+            fam.set(n, g);
+          }
+        }
+        if (!alive) return;
+        setStaticHits([...fam.values()].slice(0, 4).map((g) => ({
+          id: g.display, norm: g.norm, dirs: [...g.dirs.values()].slice(0, 2),
+        })));
+      } catch { /* offline */ }
+    })();
+    return () => { alive = false; };
+  }, [q]);
+
   /* --------------------------------- map init ----------------------------- */
-  // Map mounts whenever the channel is past "connecting" — even on a host
-  // without the relay, so the city + route corridors stay visible.
   const aliveMap = !busy;
   useEffect(() => {
     if (!aliveMap || mapRef.current || !boxRef.current) return;
@@ -217,18 +326,25 @@ export function LiveBus() {
         leafRef.current = L;
         const map = L.map(boxRef.current, { zoomControl: true, attributionControl: true, minZoom: 4 });
         mapRef.current = map;
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19, attribution: 'Map data © OpenStreetMap' })
-          .addTo(map);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19, attribution: 'Map data © OpenStreetMap' }).addTo(map);
         markerLayer.current = L.layerGroup().addTo(map);
         corridorLayer.current = L.layerGroup().addTo(map);
         map.setView([28.6139, 77.209], 11);
         map.on('zoomend', () => setZoom(map.getZoom()));
         map.on('click', () => { if (popupRef.current) { map.closePopup(popupRef.current); popupRef.current = null; } setSelBus(null); });
-        setMapReady(true);          // redraw hook: markers draw as soon as leaflet is live
+        setMapReady(true);
       } catch { /* map optional */ }
     })();
     return () => { cancelled = true; setMapReady(false); setSelBus(null); mapRef.current?.remove(); mapRef.current = null; markerLayer.current = null; corridorLayer.current = null; leafRef.current = null; };
   }, [aliveMap]);
+
+  /* resize the leaflet viewport whenever the collapsible card changes size */
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+    mapShowRef.current = mapShow;
+    const t = setTimeout(() => { try { mapRef.current?.invalidateSize(); } catch { /* */ } }, 320);
+    return () => clearTimeout(t);
+  }, [mapShow, route, mapReady]);
 
   /* ------------------------------- map drawing --------------------------- */
   const all = buses || [];
@@ -237,44 +353,43 @@ export function LiveBus() {
   const effZoom = Math.max(zoom, route ? 12 : 9);
 
   useEffect(() => {
-    if (!mapReady) return;
+    if (!mapReady || !mapShow) return;
     const L = leafRef.current, map = mapRef.current, ml = markerLayer.current, cl = corridorLayer.current;
     if (!L || !map || !ml || !cl) return;
     ml.clearLayers(); cl.clearLayers();
-    if (corridor && corridor.lines.length && route) {
-      for (const line of corridor.lines.slice(0, 6)) {
-        L.polyline(line.pts, { color: '#FFB020', weight: 2.5, opacity: 0.55, dashArray: '6 8' }).addTo(cl);
-        L.circleMarker(line.pts[0], { radius: 5, color: '#FFB020', fillOpacity: 1 }).addTo(cl).bindTooltip(line.from || '');
-        L.circleMarker(line.pts[line.pts.length - 1], { radius: 5, color: '#FF8A5C', fillOpacity: 1 }).addTo(cl).bindTooltip(line.to || '');
+    if (corr && route) {
+      for (const line of corr.lines) {
+        const pts = line.stops.map((s) => [s.lat, s.lon]);
+        if (pts.length > 1) {
+          L.polyline(pts, { color: '#FFB020', weight: 2.5, opacity: 0.55, dashArray: '6 8' }).addTo(cl);
+          L.circleMarker(pts[0], { radius: 5, color: '#FFB020', fillOpacity: 1 }).addTo(cl).bindTooltip(shortName(line.from));
+          L.circleMarker(pts[pts.length - 1], { radius: 5, color: '#FF8A5C', fillOpacity: 1 }).addTo(cl).bindTooltip(shortName(line.to));
+        }
       }
     }
+    if (!drawList.length) return;
     const list = drawList;
-    if (!list.length) return;
-
-    const openBus = (bus) => {
-      setSelBus(bus.id);
+    const openBus = (b) => {
+      setSelBus(b.id);
       const rows = [
-        `<b style="font-size:14px">${esc(bus.id || 'Bus')}</b>`,
-        `route <b>${esc(bus.route || '—')}</b>${bus.trip ? ' · trip ' + esc(bus.trip) : ''}`,
-        bus.spd ? `~${Math.round(bus.spd)} km/h moving` : 'report only (no motion yet)',
-        bus.hdg != null ? `heading ${esc(dirText(bus.hdg))} (${Math.round(bus.hdg)}°)` : '',
-        bus.ts ? `reported ${clock(bus.ts)} · ${ago(bus.ts * 1000)} ago` : '',
-        `<a href="geo:${bus.lat},${bus.lon}?q=${bus.lat},${bus.lon}" style="color:#4CC9FF">open in maps ↗</a>`,
+        `<b>${esc(b.id || 'Bus')}</b>`,
+        `route <b>${esc(b.route || '—')}</b>${b.trip ? ' · trip ' + esc(b.trip) : ''}`,
+        b.spd ? `~${Math.round(b.spd)} km/h moving` : 'report only (no motion yet)',
+        b.hdg != null ? `heading ${esc(dirText(b.hdg))} (${Math.round(b.hdg)}°)` : '',
+        b.ts ? `reported ${clock(b.ts)} · ${ago(b.ts * 1000)} ago` : '',
+        `<a href="geo:${b.lat},${b.lon}?q=${b.lat},${b.lon}" style="color:#4CC9FF">open in maps ↗</a>`,
       ].filter(Boolean).join('<br/>');
-      const popup = L.popup({ maxWidth: 230, autoPan: false }).setLatLng([bus.lat, bus.lon]).setContent(rows);
+      const popup = L.popup({ maxWidth: 230 }).setLatLng([b.lat, b.lon]).setContent(rows);
       map.closePopup(); popupRef.current = popup; map.openPopup(popup);
     };
-
-    const many = list.length > (route ? 0 : 700);
+    const many = list.length > 700;
     if (many) {
-      // grid clustering for the whole-city view
       const cell = effZoom >= 12 ? 0.004 : effZoom >= 10 ? 0.014 : 0.03;
       const grid = new Map();
       for (const b of list) {
         const k = `${Math.round(b.lat / cell)}|${Math.round(b.lon / cell)}`;
         const c = grid.get(k) || { lat: 0, lon: 0, n: 0 };
-        c.lat += b.lat; c.lon += b.lon; c.n++;
-        grid.set(k, c);
+        c.lat += b.lat; c.lon += b.lon; c.n++; grid.set(k, c);
       }
       for (const c of grid.values()) {
         const la = c.lat / c.n, lo = c.lon / c.n;
@@ -283,38 +398,29 @@ export function LiveBus() {
         m.on('click', () => map.setView([la, lo], Math.min(effZoom + 2, 15)));
         m.addTo(ml);
       }
-      if (fittedRef.current !== 'city' || fitTick > 0) { map.setView([28.6139, 77.209], effZoom); fittedRef.current = 'city'; }
+      if (fitTick > 0) map.setView([28.6139, 77.209], effZoom);
       return;
     }
-
-    const staleOf = (b) => b.ts && Date.now() - b.ts * 1000 > STALE_MS;
     for (const b of list) {
       const moving = b.spd != null && b.spd >= MOVING_KMH;
-      const stale = staleOf(b);
-      const color = route ? (stale ? '#8A94A8' : moving ? '#2FE39B' : '#FFB020') : hueOf(b.route);
+      const stale = b.ts && Date.now() - b.ts * 1000 > STALE_MS;
+      const color = route ? (stale ? '#8A94A8' : moving ? '#2FE39B' : '#FFB020') : hueOf(String(b.route || '?'));
       const m = L.circleMarker([b.lat, b.lon], {
         radius: route ? 7 : 5, weight: 1.4, color: stale ? '#444C5E' : '#0B0F17', fillColor: color, fillOpacity: 0.95,
       });
-      if (route) {
-        m.bindTooltip(`${b.id} · ${b.spd != null ? '~' + Math.round(b.spd) + ' km/h' : 'reporting'}`, { direction: 'top', opacity: 0.95 });
-        m.on('click', () => openBus(b));
-      } else {
-        m.bindTooltip(`${esc(b.route || 'bus')}${b.spd != null ? ' · ~' + Math.round(b.spd) + ' km/h' : ''}`, { direction: 'top', opacity: 0.9 });
-        m.on('click', () => openBus(b));
-      }
+      const tip = route ? `${b.id} · ${b.spd != null ? '~' + Math.round(b.spd) + ' km/h' : 'reporting'}` : `${esc(b.route || 'bus')}${b.spd != null ? ' · ~' + Math.round(b.spd) + ' km/h' : ''}`;
+      m.bindTooltip(tip, { direction: 'top', opacity: 0.95 });
+      m.on('click', () => openBus(b));
       m.addTo(ml);
     }
-    const routeKey = route;
-    if (routeKey && (fittedRef.current !== routeKey || fitTick > 0) && corridor?.lines?.length) {
+    if (route && corr && fitTick > 0) {
       try {
-        const pts = focus.filter((b) => b.lat).map((b) => [b.lat, b.lon]);
-        if (pts.length) { map.fitBounds(L.latLngBounds(pts).pad(0.12)); fittedRef.current = routeKey; }
+        const pts = drawList.filter((b) => b.lat).map((b) => [b.lat, b.lon]);
+        if (pts.length) map.fitBounds(L.latLngBounds(pts).pad(0.12));
       } catch { /* ignore */ }
-    } else if (!routeKey) map.setView([28.6139, 77.209], effZoom);
-    else map.setView([28.6139, 77.209], 12);
-    fittedRef.current = routeKey;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route, drawList, corridor, effZoom, fitTick, mapReady]);
+  }, [route, drawList, corr, effZoom, fitTick, mapReady, mapShow]);
 
   const hueOf = useMemo(() => {
     const m = new Map(); let n = 0;
@@ -329,276 +435,353 @@ export function LiveBus() {
   }, [all]);
 
   const movingAll = useMemo(() => all.filter((b) => b.spd != null && b.spd >= MOVING_KMH).length, [all]);
-  const freshAll = useMemo(() => all.filter((b) => b.ts && Date.now() - b.ts * 1000 <= STALE_MS).length, [all]);
-
-  /* Static route directory lookup — typed route may be an offline-only family
-     (OMS+, 0740 …). Matches are shown under the live results so the user can
-     open the corridor even when no bus broadcasts right now. */
-  useEffect(() => {
-    let alive = true;
-    setStaticHits([]);
-    const s = q.trim();
-    if (s.length < 2) return;
-    const want = normRoute(s);
-    if (!want) return;
-    (async () => {
-      try {
-        const core = await import('../core/bus-route');
-        const ROUTES = core.ROUTES || [];
-        const rec = (i) => (typeof i === 'number' ? (core.STOPS || [])[i] : null);
-        const fam = new Map();
-        for (const r of ROUTES) {
-          const n = normRoute(r.r);
-          if (n === want) {
-            const g = fam.get(n) || { norm: n, display: r.r, lines: new Map() };
-            if (r.r.length < g.display.length) g.display = r.r;
-            const pair = `${r.f || '?'}~${r.t || '?'}`;
-            if (!g.lines.has(pair)) g.lines.set(pair, { from: r.f || '?', to: r.t || '?' });
-            fam.set(n, g);
-          }
-        }
-        if (!alive) return;
-        setStaticHits([...fam.values()].slice(0, 3).map((g) => ({
-          id: g.display, norm: g.norm,
-          routes: [...g.lines.values()].slice(0, 2),
-        })));
-      } catch { /* offline or no match */ }
-    })();
-    return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q]);
 
   const suggestions = useMemo(() => {
     const s = q.trim();
     if (!s) return [];
-    const sq = normRoute(s);
-    const fromLive = routeCounts.filter((r) => {
+    const sq = normRoute(s) || '';
+    const live = routeCounts.filter((r) => {
       const n = normRoute(r.id); return !!n && (n.includes(sq) || r.id.includes(s));
-    }).slice(0, 4);
-    const out = fromLive.map((r) => ({ id: r.id, n: r.n, kind: 'live' }));
-    // static families that exactly match what they typed — incl. offline-only
-    for (const h of staticHits) out.push({ id: h.id, norm: h.norm, routes: h.routes, kind: 'static' });
-    return out.slice(0, 7);
+    }).sort((a, b) => {
+      const na = normRoute(a.id) || '', nb = normRoute(b.id) || '';
+      const ea = na.startsWith(sq) ? 0 : 1, eb = nb.startsWith(sq) ? 0 : 1;
+      return ea - eb || b.n - a.n;
+    }).slice(0, 3);
+    const out = live.map((r) => ({ id: r.id, n: r.n, kind: 'live' }));
+    for (const h of staticHits) out.push({ id: h.id, norm: h.norm, dirs: h.dirs, kind: 'static' });
+    return out.slice(0, 6);
   }, [q, routeCounts, staticHits]);
+
+  /* ------------------- per-bus snapping onto the corridor ----------------- */
+  const dirLines = corr ? corr.lines : [];
+  const snapped = useMemo(() => {
+    if (!route || !dirLines.length || !focus.length) return [];
+    const out = [];
+    for (const b of focus) {
+      let best = null;
+      for (let li = 0; li < dirLines.length; li++) {
+        const hit = busOnLine(dirLines[li], b.lat, b.lon);
+        if (hit && (!best || hit.d < best.hit.d)) best = { li, hit };
+      }
+      if (best && best.hit.d <= SNAP_MAX_M) out.push({ b, li: best.li, ...best.hit });
+    }
+    return out;
+  }, [route, dirLines, focus]);
+
+  /* auto-select the direction that most live buses actually match */
+  const countsByDir = useMemo(() => {
+    const c = new Array(dirLines.length).fill(0);
+    for (const s of snapped) c[s.li]++;
+    return c;
+  }, [snapped, dirLines.length]);
+  useEffect(() => {
+    if (!dirLines.length) return;
+    let top = 0;
+    for (let i = 1; i < countsByDir.length; i++) if (countsByDir[i] > countsByDir[top]) top = i;
+    if (countsByDir[top] > 0) setDirIdx(top);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [route, countsByDir.join(',')]);
+
+  const line = dirLines[Math.min(dirIdx, Math.max(0, dirLines.length - 1))] || null;
+  const rail = useMemo(() => (line ? sampleStops(line, 13) : []), [line]);
+  const busDots = useMemo(() => {
+    if (!line || !snapped.length) return [];
+    return snapped.filter((s) => s.li === Math.min(dirIdx, dirLines.length - 1))
+      .sort((a, b) => a.p - b.p)
+      .map((s) => ({ ...s, stale: s.b.ts && Date.now() - s.b.ts * 1000 > STALE_MS, moving: s.b.spd != null && s.b.spd >= MOVING_KMH }));
+  }, [snapped, line, dirIdx, dirLines.length]);
+  const unmatched = useMemo(() => {
+    const ids = new Set(snapped.map((s) => s.b.id));
+    return focus.filter((b) => !ids.has(b.id));
+  }, [focus, snapped]);
+  const ROW = 44;
 
   const focusStats = useMemo(() => {
     if (!focus.length) return null;
     const mov = focus.filter((b) => b.spd != null && b.spd >= MOVING_KMH);
     const spds = focus.map((b) => b.spd).filter((x) => x != null);
-    return {
-      n: focus.length, moving: mov.length,
-      avg: spds.length ? spds.reduce((a, b) => a + b, 0) / spds.length : null,
-      max: spds.length ? Math.max(...spds) : null,
-    };
+    return { n: focus.length, moving: mov.length, avg: spds.length ? spds.reduce((a, b) => a + b, 0) / spds.length : null, max: spds.length ? Math.max(...spds) : null };
   }, [focus]);
 
-  const sortedFocus = useMemo(() => {
-    return [...focus].sort((a, b) => {
-      const av = a.spd ?? -1, bv = b.spd ?? -1;
-      return bv - av;
-    });
-  }, [focus]);
-
-  /* ---------------------------------- render ------------------------------ */
-  const setupMode = relay === 'setup';
   const pickRoute = (id) => { setRoute(id); setQ(''); setSelBus(null); };
+  const setupMode = relay === 'setup';
 
+  /* ------------------------------- render -------------------------------- */
   return (
     <div style={{ paddingBottom: 30 }}>
+      {/* ============ control card: header + search + chips ============ */}
       <Card pad={false}>
-        {/* header */}
-        <div style={{ padding: '13px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ padding: '13px 16px 6px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div className="hubico"><Icon n="map" size={24} /></div>
           <div style={{ minWidth: 0, flex: 1 }}>
             <b style={{ fontSize: 15.5 }}>{route ? `Route ${route}` : 'Live Buses · Delhi'}</b>
             <div className="dim sm">
               {busy ? 'Connecting…'
-                : relay ? (setupMode ? 'Key set nahi hai — setup steps README mein' : 'Live channel is host pe nahi hai — relay deploy karo')
+                : relay ? (setupMode ? 'Key set nahi hai — setup steps README mein' : 'Live channel is host pe nahi hai')
                 : route ? (routeErr ? 'Route data unreachable' : `${focus.length} buses on ${route}${focusStats ? ` · ${focusStats.moving} moving` : ''} · ${ago(at)}`)
+                : err === 'refresh-failed' ? `${all.length} buses · refresh ruka, phir koshish`
+                : err === 'stale' ? `${all.length} buses · cached data`
                 : `${all.length} buses · ${routeCounts.length} routes · ${movingAll} moving · ${ago(at)}`}
             </div>
           </div>
           {route && <button className="btn ghost sm" onClick={() => pickRoute('')}><Icon n="x" size={13} /> All Delhi</button>}
-          {!busy && all.length > 0 && !route && (
-            <button className="btn ghost sm" onClick={() => setFitTick((x) => x + 1)}><Icon n="expand" size={13} /> Fit</button>)}
         </div>
 
-        {/* route quick chips (whole city) */}
+        {/* map toggle (map is its own card below) */}
+        <div style={{ padding: '4px 16px 8px', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className={`btn ghost sm ${mapShow ? '' : 'on'}`} onClick={() => setMapShow(!mapShow)} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+            <Icon n={mapShow ? 'down' : 'map'} size={13} /> {mapShow ? 'Map chhupao' : 'Map dikhao'}
+          </button>
+          {!route && !relay && all.length > 0 && (
+            <button className="btn ghost sm" onClick={() => setFitTick((x) => x + 1)} style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <Icon n="expand" size={13} /> Fit
+            </button>)}
+          {route && corr && dirLines.length > 1 && (
+            <span style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap', marginLeft: 'auto' }}>
+              {dirLines.map((dl, i) => (
+                <button key={i} onClick={() => setDirIdx(i)}
+                  style={{ display: 'inline-flex', gap: 5, alignItems: 'center', borderRadius: 999, padding: '4px 10px',
+                    border: '1px solid ' + (i === Math.min(dirIdx, dirLines.length - 1) ? 'rgba(255,176,32,.6)' : 'var(--line)'),
+                    background: i === Math.min(dirIdx, dirLines.length - 1) ? 'rgba(255,176,32,.14)' : 'var(--s2)',
+                    color: 'var(--fg)', font: '600 11px/1.4 var(--font-body)', cursor: 'pointer' }}>
+                  {shortName(dl.from)} → {shortName(dl.to)}
+                  {countsByDir[i] > 0 && <span className="tag g">{countsByDir[i]}</span>}
+                </button>))}
+            </span>)}
+        </div>
+
+        {/* whole-city live route chips */}
         {!route && !relay && routeCounts.length > 0 && (
-          <div style={{ padding: '0 12px 4px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <span className="dim sm" style={{ padding: '6px 2px 0' }}>Live routes:</span>
-            {routeCounts.slice(0, 16).map((r) => (
+          <div style={{ padding: '0 16px 6px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {routeCounts.slice(0, 12).map((r) => (
               <button key={r.id} onClick={() => pickRoute(r.id)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--s2)',
-                  border: '1px solid var(--line2)', borderRadius: 999, padding: '3px 10px', cursor: 'pointer',
-                  color: 'var(--fg)', font: '700 12px/1.4 var(--font-body)' }}>
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'var(--s2)', border: '1px solid var(--line2)',
+                  borderRadius: 999, padding: '3px 10px', cursor: 'pointer', color: 'var(--fg)', font: '700 12px/1.4 var(--font-body)' }}>
                 {r.id}<span className="dim sm">{r.n}</span>
               </button>))}
           </div>)}
 
-        {/* search */}
-        {!relay && (
-          <div style={{ padding: '4px 16px 8px', position: 'relative' }}>
-            <div className="search" style={{ margin: '6px 0 0' }}>
-              <Icon n="search" size={16} />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Route search — 740, OMS+, 3476, bus plate…"
-                style={{ padding: '11px 0', fontSize: 14 }} />
-              {q && <button onClick={() => setQ('')} aria-label="Clear" style={{ background: 'none', border: 0, color: 'var(--fg3)' }}><Icon n="x" size={15} /></button>}
-            </div>
-            {suggestions.length > 0 && (
-              <div style={{ position: 'absolute', zIndex: 50, left: 16, right: 16, top: 'calc(100% - 2px)', background: 'var(--s2)',
-                border: '1px solid var(--line2)', borderRadius: 14, boxShadow: '0 18px 40px -18px #000', overflow: 'hidden' }}>
-                {suggestions.map((s, si) => (
-                  <button key={s.id + si} onMouseDown={(e) => { e.preventDefault(); pickRoute(s.id); }}
-                    style={{ display: 'flex', width: '100%', gap: 10, alignItems: 'center', padding: '10px 14px', background: 'none',
-                      border: 0, borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', color: 'var(--fg)' }}>
-                    <b style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>{s.id}</b>
-                    {s.kind === 'live'
-                      ? <span className="tag g" style={{ fontWeight: 700 }}>{s.n} live now</span>
-                      : <span className="tag" style={{ color: 'var(--cyan)', borderColor: 'rgba(76,201,255,.4)' }}>static · 0 live abhi</span>}
-                    <span className="dim sm" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginLeft: 'auto' }}>
-                      {s.kind === 'static' && s.routes && s.routes.length ? `${s.routes[0].from} → ${s.routes[0].to}` : ''}
-                    </span>
-                    <Icon n="right" size={14} style={{ color: 'var(--fg3)', flex: '0 0 auto' }} />
-                  </button>))}
-              </div>)}
-          </div>)}
-
-        {/* relay message */}
-        {relay && (
-          <div className="state" style={{ padding: '10px 24px 18px' }}>
-            <p className="dim sm" style={{ maxWidth: 520, margin: '0 auto' }}>
-              {setupMode
-                ? 'Live channel ready par server key set nahi hai — Vercel project ke Environment Variables mein OTDLIVE_KEY daal kar redeploy karo (README).'
-                : 'Ye page relay ke bina host ho raha hai (jaise GitHub Pages). Live buses ke liye Vercel deploy karo — README mein steps hain.'}
-            </p>
-          </div>)}
-
-        {/* map (mounts as soon as we are past connecting; overlay states on top) */}
-        <div style={{ height: route ? '46vh' : '52vh', minHeight: route ? 260 : 300, position: 'relative', background: 'var(--s1)' }}>
-          <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
-          {busy && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 55%, transparent)', zIndex: 400 }}>
-            <div className="state"><span className="spin" /><p>Live buses se jud rahe hain…</p></div>
-          </div>}
-          {!busy && relay && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 45%, transparent)', zIndex: 300 }}>
-            <div className="state" style={{ padding: '0 18px' }}>
-              {setupMode ? (
-                <><p className="dim sm">Server key set nahi — OTDLIVE_KEY + redeploy karo (README).</p></>
-              ) : (
-                <>
-                  <p style={{ fontWeight: 650 }}>Ye host live data nahi de sakta</p>
-                  <p className="dim sm" style={{ maxWidth: 300, margin: '4px auto 12px' }}>GitHub Pages sirf static hai — live buses ke liye Vercel wala version kholo (key wahi hai):</p>
-                  <a className="btn" style={{ color: '#170800', textDecoration: 'none', display: 'inline-flex', gap: 8, alignItems: 'center' }}
-                    href="https://delhi-dost.vercel.app/#livebus" target="_blank" rel="noopener">
-                    <Icon n="link" size={15} /> Live version kholo ↗
-                  </a>
-                </>
-              )}
-            </div>
-          </div>}
+        {/* search — its own strip, above the map card */}
+        <div style={{ padding: '4px 16px 12px', position: 'relative' }}>
+          <div className="search" style={{ margin: '6px 0 0' }}>
+            <Icon n="search" size={16} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Route search — 3476 · 740 · OMS+ · 522…"
+              style={{ padding: '11px 0', fontSize: 14 }} />
+            {q && <button onClick={() => setQ('')} aria-label="Clear" style={{ background: 'none', border: 0, color: 'var(--fg3)' }}><Icon n="x" size={15} /></button>}
+          </div>
+          {suggestions.length > 0 && (
+            <div style={{ position: 'absolute', zIndex: 70, left: 16, right: 16, top: 'calc(100% - 6px)', background: 'var(--s2)',
+              border: '1px solid var(--line2)', borderRadius: 15, boxShadow: '0 20px 46px -16px #000', overflow: 'hidden' }}>
+              {suggestions.map((s, si) => (
+                <button key={s.id + si} onMouseDown={(e) => { e.preventDefault(); pickRoute(s.id); }}
+                  style={{ display: 'flex', width: '100%', gap: 9, alignItems: 'center', padding: '10px 14px', background: 'none',
+                    border: 0, borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', color: 'var(--fg)' }}>
+                  <b style={{ fontFamily: 'var(--font-mono)', fontSize: 14, flex: '0 0 auto' }}>{s.id}</b>
+                  {s.kind === 'live'
+                    ? <span className="tag g" style={{ fontWeight: 700, flex: '0 0 auto' }}>{s.n} live now</span>
+                    : <span className="tag" style={{ color: 'var(--cyan)', borderColor: 'rgba(76,201,255,.4)', flex: '0 0 auto' }}>static · 0 live abhi</span>}
+                  <span className="dim sm" style={{ minWidth: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {s.kind === 'static' && s.dirs && s.dirs.length
+                      ? s.dirs.map((d, di) => <span key={di}>{di > 0 && ' · '}{shortName(d.from)} → {shortName(d.to)}</span>)
+                      : s.kind === 'live' ? (routeCounts.find((r) => r.id === s.id) ? 'live abhi' : '') : ''}
+                  </span>
+                  <Icon n="right" size={14} style={{ color: 'var(--fg3)', flex: '0 0 auto' }} />
+                </button>))}
+            </div>)}
         </div>
+      </Card>
 
-        {/* drill-down bus */}
-        {selBus && (
-          <div style={{ padding: '10px 16px', borderTop: '1px solid var(--line)', background: 'color-mix(in srgb, var(--s2) 55%, transparent)' }}>
-            {(() => { const b = all.find((x) => x.id === selBus) || focus.find((x) => x.id === selBus); if (!b) return null;
-              return (
-                <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 99, background: b.spd != null && b.spd >= MOVING_KMH ? '#2FE39B' : '#FFB020' }} />
-                  <b style={{ fontFamily: 'var(--font-mono)' }}>{b.id}</b>
-                  <span className="tag c">route {b.route}</span>
-                  {b.trip && <span className="dim sm">trip {b.trip}</span>}
-                  {b.spd != null && <span className="tag g">~{Math.round(b.spd)} km/h</span>}
-                  {b.hdg != null && <span className="dim sm">heading {dirText(b.hdg)}</span>}
-                  {b.dist != null && <span className="dim sm">{b.dist} m moved</span>}
-                  <span className="dim sm">report {ago(b.ts * 1000)} ago</span>
-                  <button className="btn ghost sm" style={{ marginLeft: 'auto' }} onClick={() => setSelBus(null)}>Close</button>
-                </div>);
-            })()}
-          </div>)}
+      {/* ============ map card — separate + collapsible (always mounted; hidden via display so Leaflet survives) ============ */}
+      <Card pad={false} style={{ marginTop: 12, overflow: 'hidden', display: mapShow ? '' : 'none' }}>
+        <div style={{ height: route ? '38vh' : '48vh', minHeight: route ? 220 : 280, position: 'relative', background: 'var(--s1)' }}>
+            <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
+            {relay && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 55%, transparent)', zIndex: 300 }}>
+              <div className="state" style={{ padding: '0 18px' }}>
+                {setupMode ? <p className="dim sm">Server key set nahi — OTDLIVE_KEY + redeploy karo (README).</p>
+                  : (<>
+                    <p style={{ fontWeight: 650 }}>Ye host live data nahi de sakta</p>
+                    <p className="dim sm" style={{ maxWidth: 300, margin: '4px auto 12px' }}>GitHub Pages static hai — live buses ke liye Vercel wala version kholo:</p>
+                    <a className="btn" style={{ color: '#170800', textDecoration: 'none', display: 'inline-flex', gap: 8, alignItems: 'center' }}
+                      href="https://delhi-dost.vercel.app/#livebus" target="_blank" rel="noopener">
+                      <Icon n="link" size={15} /> Live version kholo ↗</a>
+                  </>)}
+              </div>
+            </div>}
+            {busy && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 60%, transparent)', zIndex: 400 }}>
+              <div className="state"><span className="spin" /><p>Live buses se jud rahe hain…</p></div>
+            </div>}
+          </div>
+          {!route && !relay && all.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--line)', padding: '8px 14px', display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span className="dim sm" style={{ display: 'flex', gap: 5, alignItems: 'center' }}><i style={{ width: 8, height: 8, borderRadius: 99, background: '#2FE39B', display: 'inline-block' }} /> moving</span>
+              <span className="dim sm" style={{ display: 'flex', gap: 5, alignItems: 'center' }}><i style={{ width: 8, height: 8, borderRadius: 99, background: '#FFB020', display: 'inline-block' }} /> standing</span>
+              <span className="dim sm" style={{ display: 'flex', gap: 5, alignItems: 'center' }}><i style={{ width: 8, height: 8, borderRadius: 99, background: '#8A94A8', display: 'inline-block' }} /> stale</span>
+              <span className="dim sm" style={{ marginLeft: 'auto' }}>{all.length} buses · {movingAll} moving · routes {routeCounts.length}</span>
+            </div>)}
+        </Card>
 
-        {/* route panel */}
-        {route && (
-          <div style={{ borderTop: '1px solid var(--line)' }}>
-            {corridor?.lines?.length > 0 && (
-              <div style={{ padding: '10px 16px 2px', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                {corridor.lines.slice(0, 3).map((l, i) => (
-                  <span key={i} className="dim sm"><Icon n="route" size={12} style={{ color: 'var(--green)' }} /> {l.from} → {l.to}</span>))}
-              </div>)}
-            {focusStats && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, padding: '10px 16px 6px' }}>
-                <div className="stat"><div className="v">{focusStats.n}</div><div className="l">buses</div></div>
-                <div className="stat"><div className="v" style={{ color: '#2FE39B' }}>{focusStats.moving}</div><div className="l">moving</div></div>
-                <div className="stat"><div className="v" style={{ color: 'var(--cyan)' }}>{focusStats.avg ? '~' + Math.round(focusStats.avg) : '—'}</div><div className="l">avg km/h</div></div>
-                <div className="stat"><div className="v">{focusStats.max ? '~' + Math.round(focusStats.max) : '—'}</div><div className="l">top km/h</div></div>
-              </div>)}
-            <div className="dim sm" style={{ padding: '4px 16px 8px', display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
-              <Icon n="info" size={13} />
-              Speeds are estimates from successive position reports. Green = moving · amber = standing · grey = stale (&gt;3 min old).
+      {!mapShow && (
+        <div style={{ marginTop: 12 }}>
+          <button onClick={() => setMapShow(true)} className="btn ghost"
+            style={{ width: '100%', display: 'flex', gap: 8, alignItems: 'center', justifyContent: 'center', padding: '12px' }}>
+            <Icon n="map" size={15} /> Map dikhao
+          </button>
+        </div>)}
+
+      {/* ============ route text track — the map-free view ============ */}
+      {route && (
+        <>
+          {focusStats && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 12 }}>
+              <div className="stat"><div className="v">{focusStats.n}</div><div className="l">buses</div></div>
+              <div className="stat"><div className="v" style={{ color: '#2FE39B' }}>{focusStats.moving}</div><div className="l">moving</div></div>
+              <div className="stat"><div className="v" style={{ color: 'var(--cyan)' }}>{focusStats.avg ? '~' + Math.round(focusStats.avg) : '—'}</div><div className="l">avg km/h</div></div>
+              <div className="stat"><div className="v">{focusStats.max ? '~' + Math.round(focusStats.max) : '—'}</div><div className="l">top km/h</div></div>
+            </div>)}
+
+          {/* the rail */}
+          {line && rail.length > 1 && (
+            <Card pad={false} style={{ marginTop: 12, overflow: 'hidden' }}>
+              <div className="chead" style={{ padding: '13px 15px 2px' }}>
+                <Icon n="route" size={15} /> Ab kahan hain — {shortName(line.from)} → {shortName(line.to)}
+                <span className="dim sm" style={{ marginLeft: 6 }}>(positions snapped se estimate hain)</span>
+              </div>
+              <div className="dim sm" style={{ padding: '2px 15px 6px', maxHeight: 46, overflow: 'hidden' }}
+                title={rail.map((st) => label(st.n)).join(' · ')}>
+                {rail.map((st, i) => <span key={i}>{i > 0 && ' · '}{label(st.n)}</span>)}
+              </div>
+              <div style={{ position: 'relative', padding: '2px 8px 10px' }}>
+                {/* rail stops */}
+                <div>
+                  {rail.map((st, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, height: ROW, padding: '0 10px',
+                      borderBottom: i < rail.length - 1 ? '1px dashed var(--line)' : 'none', position: 'relative' }}>
+                      <span style={{ width: 11, height: 11, borderRadius: 99, flex: '0 0 auto', background: i === 0 ? 'var(--green)' : i === rail.length - 1 ? 'var(--rose)' : 'var(--s3)',
+                        border: '2px solid ' + (i === 0 ? 'rgba(255,176,32,.8)' : i === rail.length - 1 ? 'rgba(255,93,115,.8)' : 'var(--line2)') }} />
+                      <b style={{ fontSize: 12.6, fontWeight: 650 }}>{label(st.n)}</b>
+                      {i === 0 && <span className="dim sm">start</span>}
+                      {i === rail.length - 1 && <span className="tag" style={{ color: 'var(--rose)', borderColor: 'rgba(255,93,115,.4)' }}>end</span>}
+                      <span className="dim sm" style={{ marginLeft: 'auto', fontSize: 10.5, fontFamily: 'var(--font-mono)' }}>
+                        {Math.round(st.p * 100)}%</span>
+                    </div>))}
+                </div>
+                {/* animated bus dots */}
+                {busDots.map((s, i) => {
+                  const topPx = s.p * (rail.length - 1) * ROW;
+                  const left = 40 + (i % 5) * 3;
+                  const col = s.stale ? '#8A94A8' : s.moving ? '#2FE39B' : '#FFB020';
+                  return (
+                    <div key={s.b.id} onClick={() => { setSelBus(s.b.id); if (!mapShow) setMapShow(true); }}
+                      title={`${s.b.id} · ${s.b.spd != null ? '~' + Math.round(s.b.spd) + ' km/h' : 'standing'}`}
+                      style={{ position: 'absolute', left, top: Math.min(Math.max(0, topPx + ROW / 2 - 11), rail.length * ROW),
+                        transition: 'top 1.1s cubic-bezier(.4,0,.2,1), opacity .4s', cursor: 'pointer', zIndex: 5,
+                        display: 'flex', alignItems: 'center', gap: 5, pointerEvents: 'auto' }}>
+                      <span style={{ width: 11, height: 11, borderRadius: 99, background: col, boxShadow: `0 0 9px ${col}` }} />
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, background: 'color-mix(in srgb, var(--s2) 88%, transparent)',
+                        border: '1px solid var(--line2)', borderRadius: 7, padding: '1px 5px', color: 'var(--fg)', whiteSpace: 'nowrap' }}>
+                        {s.b.id.slice(-4)}{s.b.spd != null ? ` ~${Math.round(s.b.spd)}` : ''}</span>
+                    </div>);
+                })}
+              </div>
+            </Card>)}
+
+          {corrErr === 'static' && focus.length > 0 && (
+            <div className="note" style={{ marginTop: 12 }}>Is route ka offline corridor is build mein nahi hai — neeche raw live positions dikh rahi hain.</div>)}
+
+          {/* per-bus stop-level text list */}
+          <Card pad={false} style={{ marginTop: 12 }}>
+            <div className="chead" style={{ padding: '13px 15px 2px' }}><Icon n="bus" size={15} /> Buses on {route}
+              {snapped.length > 0 && <span className="dim sm" style={{ marginLeft: 8 }}>{snapped.length} route pe · bina map ke bhi pata — position stops ke hisaab se</span>}
             </div>
+            {routeErr && <div className="dim sm" style={{ padding: '4px 15px' }}>Route refresh unreachable — last data dikh raha hai.</div>}
 
-            {routeErr && <div className="dim sm" style={{ padding: '6px 16px' }}>Route refresh unreachable right now — showing last data.</div>}
-
-            {sortedFocus.length === 0 ? (
-              <div className="state" style={{ padding: '22px 16px' }}>
+            {snapped.length === 0 && unmatched.length === 0 && focus.length === 0 && (
+              <div className="state" style={{ padding: '20px 14px' }}>
                 <p style={{ fontWeight: 650 }}>{route} pe abhi koi live bus nahi</p>
-                {corridor?.lines?.length ? (
-                  <p className="dim sm" style={{ maxWidth: 520 }}>
-                    Ye route map pe dikh raha hai (terminals ke saath). Is waqt us number ki koi bus report nahi ho rahi —
-                    raat ke hours mein kuch routes band ho jaate hain; subah ya din mein dobara try karo.</p>
-                ) : (
-                  <p className="dim sm">Is number pe abhi koi report nahi hai. Dusre number try karo — neeche "Live routes" chips se.</p>)}
-                {routeCounts.slice(0, 8).length > 0 && (
+                {line && <p className="dim sm" style={{ maxWidth: 460, margin: '6px auto 12px' }}>
+                  Route ka poora corridor upar hai ({shortName(line.from)} → {shortName(line.to)}). Is waqt koi bus report nahi ho rahi —
+                  raat ke hours mein kuch routes band ho jaate hain; subah/din mein dobara try karo.</p>}
+                {routeCounts.slice(0, 6).length > 0 && (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
                     <span className="dim sm" style={{ alignSelf: 'center' }}>Abhi live:</span>
-                    {routeCounts.slice(0, 8).map((r) => (
+                    {routeCounts.slice(0, 6).map((r) => (
                       <button key={r.id} className="btn ghost sm" onClick={() => pickRoute(r.id)}>{r.id} · {r.n}</button>))}
                   </div>)}
-              </div>
-            ) : (
-              <div style={{ maxHeight: 400, overflow: 'auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 16px', fontSize: 10.5, color: 'var(--fg3)', letterSpacing: .6, textTransform: 'uppercase' }}>
-                  <span style={{ flex: 1 }}>Bus</span><span style={{ width: 74 }}>speed</span><span style={{ width: 64 }}>heading</span><span style={{ width: 56, textAlign: 'right' }}>report</span>
-                </div>
-                {sortedFocus.map((b) => {
+              </div>)}
+
+            {(snapped.length > 0 || unmatched.length > 0) && (
+              <div style={{ maxHeight: 430, overflow: 'auto' }}>
+                {snapped.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 15px', fontSize: 10, color: 'var(--fg3)', letterSpacing: .5, textTransform: 'uppercase' }}>
+                    <span style={{ flex: 1 }}>Bus · route position</span>
+                    <span style={{ width: 68 }}>speed</span><span style={{ width: 90, textAlign: 'right' }}>aage</span>
+                  </div>)}
+                {snapped.map((s) => {
+                  const lineThis = dirLines[s.li];
+                  const b = s.b;
                   const moving = b.spd != null && b.spd >= MOVING_KMH;
                   const stale = b.ts && Date.now() - b.ts * 1000 > STALE_MS;
+                  const pct = Math.round(s.p * 100);
                   return (
-                    <button key={b.id} onClick={() => { setSelBus(b.id === selBus ? null : b.id); if (mapRef.current) mapRef.current.setView([b.lat, b.lon], 14); }}
-                      style={{ display: 'flex', width: '100%', gap: 6, alignItems: 'center', padding: '9px 16px', background: 'none', border: 0,
-                        borderTop: '1px solid var(--line)', cursor: 'pointer', color: 'var(--fg)', textAlign: 'left' }}>
+                    <div key={b.id} onClick={() => { setSelBus(b.id); if (!mapShow) setMapShow(true); }}
+                      style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 15px', borderTop: '1px solid var(--line)', cursor: 'pointer' }}>
                       <span style={{ width: 9, height: 9, borderRadius: 99, flex: '0 0 auto', background: stale ? '#8A94A8' : moving ? '#2FE39B' : '#FFB020',
                         boxShadow: moving ? '0 0 8px rgba(47,227,155,.7)' : 'none' }} />
                       <span style={{ flex: 1, minWidth: 0 }}>
-                        <b style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5, display: 'block' }}>{b.id}{stale && <span className="dim sm" style={{ marginLeft: 6 }}>stale</span>}</b>
-                        <span className="dim sm" style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {b.trip || ''}</span>
+                        <span style={{ display: 'flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                          <b style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>{b.id}</b>
+                          <span className="dim sm">{shortName(lineThis.from)} → {shortName(lineThis.to)}</span>
+                          {stale && <span className="tag">stale</span>}
+                        </span>
+                        <span className="sm" style={{ display: 'block', marginTop: 1, color: 'var(--fg2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <Icon n="pin" size={11} style={{ color: 'var(--cyan)' }} />
+                          {pct <= 4 ? <>start ke paas · abhi {label(s.next.n)} ki taraf</>
+                            : pct >= 96 ? <><b>{label(lineThis.to)}</b> ke paas (end)</>
+                            : <><b>{label(s.prev.n)}</b> se aage · agla {label(s.next.n)} · {s.left} stop{lineThis.stops.length > 1 ? 's' : ''} baaki</>}
+                        </span>
                       </span>
-                      <span style={{ width: 74, fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: moving ? '#2FE39B' : 'var(--fg2)' }}>
+                      <span style={{ width: 68, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: moving ? '#2FE39B' : 'var(--fg2)' }}>
                         {b.spd != null ? '~' + Math.round(b.spd) : '—'}<span className="dim sm"> km/h</span></span>
-                      <span style={{ width: 64, fontSize: 12.5, color: 'var(--fg2)' }}>{b.hdg != null ? dirText(b.hdg) : '—'}</span>
-                      <span style={{ width: 56, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg3)' }}>
-                        {clock(b.ts)}</span>
-                    </button>);
+                      <span style={{ width: 90, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--fg3)' }}>
+                        {pct}% · {clock(b.ts)}</span>
+                    </div>);
+                })}
+                {unmatched.map((b) => {
+                  const moving = b.spd != null && b.spd >= MOVING_KMH;
+                  const stale = b.ts && Date.now() - b.ts * 1000 > STALE_MS;
+                  return (
+                    <div key={b.id} onClick={() => { setSelBus(b.id); if (!mapShow) setMapShow(true); }}
+                      style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 15px', borderTop: '1px solid var(--line)', cursor: 'pointer' }}>
+                      <span style={{ width: 9, height: 9, borderRadius: 99, flex: '0 0 auto', background: stale ? '#8A94A8' : moving ? '#2FE39B' : '#FFB020' }} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <b style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}>{b.id}</b>
+                        <span className="dim sm" style={{ marginLeft: 6 }}>corridor se door (depot?)</span>
+                      </span>
+                      <span style={{ width: 68, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700 }}>
+                        {b.spd != null ? '~' + Math.round(b.spd) : '—'}</span>
+                      <span style={{ width: 90, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--fg3)' }}>{clock(b.ts)}</span>
+                    </div>);
                 })}
               </div>)}
-          </div>)}
+            <div className="dim sm" style={{ borderTop: '1px solid var(--line)', padding: '8px 15px' }}>
+              Stops ke beech position = GPS point ko route line pe snap karke nikala jaata hai (estimate). Speed ~ estimate. Green = moving · amber = standing · grey = stale (&gt;3 min).
+            </div>
+          </Card>
+        </>)}
 
-        {/* whole-city strip */}
-        {!route && !relay && all.length > 0 && (
-          <div style={{ borderTop: '1px solid var(--line)', padding: '10px 16px', display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="dim sm" style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-              <span style={{ width: 9, height: 9, borderRadius: 99, background: '#2FE39B', display: 'inline-block' }} /> moving
-            </span>
-            <span className="dim sm" style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-              <span style={{ width: 9, height: 9, borderRadius: 99, background: '#FFB020', display: 'inline-block' }} /> standing
-            </span>
-            <span className="dim sm" style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-              <span style={{ width: 9, height: 9, borderRadius: 99, background: '#8A94A8', display: 'inline-block' }} /> stale
-            </span>
-            <span className="dim sm" style={{ marginLeft: 'auto' }}>{freshAll}/{all.length} fresh · ~{movingAll} moving</span>
-          </div>)}
-      </Card>
+      {/* ============ whole-city list footer ============ */}
+      {!route && !relay && all.length > 0 && (
+        <div style={{ marginTop: 10, maxHeight: 260, overflow: 'auto' }}>
+          {routeCounts.map((r) => (
+            <button key={r.id} onClick={() => pickRoute(r.id)}
+              style={{ display: 'flex', width: '100%', gap: 10, alignItems: 'center', padding: '8px 16px', background: 'none', border: 0,
+                borderTop: '1px solid var(--line)', cursor: 'pointer', color: 'var(--fg)', textAlign: 'left' }}>
+              <span style={{ width: 9, height: 9, borderRadius: 99, background: hueOf(r.id) }} />
+              <b style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{r.id}</b>
+              <span className="dim sm" style={{ marginLeft: 'auto' }}>{r.n} buses</span>
+              <Icon n="right" size={13} style={{ color: 'var(--fg3)' }} />
+            </button>))}
+        </div>)}
     </div>
   );
 }
