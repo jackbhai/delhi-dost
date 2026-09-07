@@ -81,43 +81,49 @@ function parse(buf, start, end, schema) {
   return out;
 }
 
-/* GTFS-rt subset (field number -> type or nested schema). */
+/* Wire layout of the OTD feed (verified against real captures):
+   FeedMessage { 1: header, 2: entities }
+   FeedEntity  { 1: id, 4: vehicle }
+   VehiclePosition { 1: trip, 2: position, 3: stop_seq, 4: status,
+                     5: timestamp, 6: congestion, 7: stop_id, 8: vehicle,
+                     9: occupancy, 10: occupancy_pct } */
+const TRIP = { 1: 'str', 2: 'str', 3: 'str', 4: 'varint', 5: 'str', 6: 'varint' };
+const VDESC = { 1: 'str', 2: 'str', 3: 'str', 4: 'varint' };
+const POSITION = { 1: 'f32', 2: 'f32', 3: 'f32', 4: 'f64', 5: 'f32' };
 const VEHICLE = {
-  1: { 1: 'str', 5: 'str' },          // trip
-  4: { 1: 'f32', 2: 'f32', 3: 'f32', 4: 'f64', 5: 'f32' }, // position
-  5: 'varint', 6: 'varint', 7: 'str',
-  8: { 1: 'str', 2: 'str', 3: 'str' },// vehicle
-  9: 'varint',
+  1: TRIP, 2: POSITION, 3: 'varint', 4: 'varint', 5: 'varint', 6: 'varint',
+  7: 'str', 8: VDESC, 9: 'varint', 10: 'varint',
 };
-const FEED_ENTITY = { 1: { r: true, s: 'str' }, 4: { r: true, s: VEHICLE } };
-const FEED = { 1: { r: true, s: FEED_ENTITY }, 2: { 1: 'str', 3: 'varint' } };
+const FEED_ENTITY = { 1: 'str', 4: VEHICLE };
+const HEADER = { 1: 'str', 2: 'varint', 3: 'varint' };
+const FEED = { 1: HEADER, 2: { r: true, s: FEED_ENTITY } };
 
 /** Decode a VehiclePositions.pb payload -> { feedTs, buses[] }. */
 export function decodeGtfsRt(buf) {
   const feed = parse(buf, 0, buf.length, FEED);
-  const entities = feed[1] || [];
-  const header = feed[2] || {};
+  const entities = feed[2] || [];
+  const header = feed[1] || {};
   const feedTs = header[3] ? header[3] * 1000 : Date.now();
   const buses = [];
   for (const e of entities) {
-    const v = (e[4] || [])[0];       // repeated in schema; feeds send one
-    if (!v) continue;
-    const pos = v[4];
+    const v = e[4];
+    if (!v || typeof v !== 'object') continue;
+    const pos = v[2];
     if (!pos || !isFinite(pos[1]) || !isFinite(pos[2])) continue;
     const trip = v[1] || {};
     const desc = v[8] || {};
     buses.push({
-      id: desc[1] || null,
-      label: desc[2] || desc[3] || null,
+      id: desc[1] || e[1] || null,
+      label: desc[2] || desc[1] || null,
       route: trip[5] || null,
       trip: trip[1] || null,
       lat: Math.round(pos[1] * 1e6) / 1e6,
       lon: Math.round(pos[2] * 1e6) / 1e6,
       bearing: pos[3] != null ? Math.round(pos[3]) : null,
       speed: pos[5] != null ? Math.round(pos[5] * 3.6) : null, // m/s -> km/h
-      status: v[6] != null ? v[6] : null,
+      status: v[4] != null ? v[4] : null,
       stop: v[7] || null,
-      ts: v[9] ? v[9] * 1000 : feedTs,
+      ts: v[5] ? v[5] * 1000 : feedTs,
     });
   }
   return { feedTs, buses };

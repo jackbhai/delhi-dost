@@ -23,6 +23,7 @@ function s(strv) { return len(Buffer.from(strv, 'utf8')); }
 function msg(fields) { return Buffer.concat(fields); }
 
 function buildSample() {
+  // mirrors the wire layout of the real OTD feed (see live-bus.mjs)
   const position = msg([
     key(1, 5), f32(28.6139),
     key(2, 5), f32(77.2090),
@@ -33,16 +34,17 @@ function buildSample() {
   const vehicle = msg([key(1, 2), s('DL1PC1234'), key(2, 2), s('bus-77')]);
   const vp = msg([
     key(1, 2), len(trip),
-    key(4, 2), len(position),
-    key(6, 0), varint(2),
+    key(2, 2), len(position),
+    key(4, 0), varint(2),
+    key(5, 0), varint(1754567890),
     key(7, 2), s('Nehru Place'),
     key(8, 2), len(vehicle),
-    key(9, 0), varint(1754567890),
   ]);
   const ent1 = msg([key(1, 2), s('v1'), key(4, 2), len(vp)]);
+  const header = msg([key(1, 2), s('2.0'), key(2, 0), varint(0), key(3, 0), varint(1754567891)]);
   return msg([
-    key(2, 2), len(msg([key(1, 2), s('2.0'), key(3, 0), varint(1754567891)])),
-    key(1, 2), len(ent1),
+    key(1, 2), len(header),
+    key(2, 2), len(ent1),
   ]);
 }
 
