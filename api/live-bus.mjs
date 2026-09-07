@@ -10,15 +10,46 @@
  * returns a small JSON summary. There is no CORS hole because the browser
  * never talks to the upstream service at all.
  *
- * ENDPOINT
- *   GET /api/live-bus
- *   -> 200 { ok, at, count, buses: [ {id,label,route,trip,lat,lon,bearing,
- *                                     speed,status,stop,ts} ] }
+ * ENDPOINT (GET /api/live-bus)
+ *   plain             -> { ok, at, feedTs, count, buses: [..] }   all buses
+ *   ?route=740        -> same shape, only buses on that route (normalised)
+ *   ?brief=1          -> { ok, at, feedTs, count, routes:[{id,n}] }  route counts
+ *   ?route=&brief=1   -> single-route counts (for the picker row)
+ *
+ * FEED FACTS (observed, so the UI can be honest)
+ *   · route ids are numeric strings, up to ~1 200 different routes a night
+ *   · the feed never carries speed/bearing/stop/occupancy or a direction id —
+ *     the app derives speed + heading by comparing successive positions
+ *   · every vehicle carries its own report timestamp; some run minutes stale
+ *
+ * RESPONSES
+ *   -> 200 { ok:true, at, feedTs, count, buses|routes }
  *   -> 503 { ok:false, error:'setup' }        key not configured yet
  *   -> 502 { ok:false, error:'upstream' }     live service unreachable
  *   -> 400 { ok:false, error:'badfeed' }      payload could not be decoded
  */
 const DEFAULT_URL = 'https://otd.delhi.gov.in/api/realtime/VehiclePositions.pb';
+
+/* tiny shared cache: several clients + a few polls share one upstream fetch */
+const FEED_CACHE_TTL = 6000;
+let feedCache = null; // { at, raw:Buffer }
+
+async function fetchRaw(key, base) {
+  const now = Date.now();
+  if (feedCache && now - feedCache.at < FEED_CACHE_TTL) return feedCache.raw;
+  const url = `${base}?key=${encodeURIComponent(key)}`;
+  const ctl = new AbortController();
+  const to = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, headers: { accept: '*/*' } });
+    if (!r.ok) throw new Error('upstream ' + r.status);
+    const raw = Buffer.from(await r.arrayBuffer());
+    feedCache = { at: now, raw };
+    return raw;
+  } finally {
+    clearTimeout(to);
+  }
+}
 
 /* ================================================================ wire fmt */
 function readVarint(buf, p) {
@@ -59,9 +90,7 @@ function readScalar(s, buf, wire, vp, vend) {
 }
 
 /* One pass: tags are emitted in ascending order by conformant encoders, but we
-   accept any order — strings are sliced by offset and decoded on demand.
-   schema values: 'str'|'varint'|'f32'|'f64' | nested schema | {r:true, s:…} for
-   repeated fields (collected into arrays). */
+   accept any order — strings are sliced by offset and decoded on demand. */
 function parse(buf, start, end, schema) {
   const out = {};
   walk(buf, start, end, (field, wire, vp, vend) => {
@@ -112,21 +141,40 @@ export function decodeGtfsRt(buf) {
     if (!pos || !isFinite(pos[1]) || !isFinite(pos[2])) continue;
     const trip = v[1] || {};
     const desc = v[8] || {};
-    buses.push({
+    const bus = {
       id: desc[1] || e[1] || null,
-      label: desc[2] || desc[1] || null,
       route: trip[5] || null,
       trip: trip[1] || null,
       lat: Math.round(pos[1] * 1e6) / 1e6,
       lon: Math.round(pos[2] * 1e6) / 1e6,
-      bearing: pos[3] != null ? Math.round(pos[3]) : null,
-      speed: pos[5] != null ? Math.round(pos[5] * 3.6) : null, // m/s -> km/h
-      status: v[4] != null ? v[4] : null,
-      stop: v[7] || null,
-      ts: v[5] ? v[5] * 1000 : feedTs,
-    });
+      ts: v[5] ? v[5] * 1000 : null,
+    };
+    if (v[4] != null) bus.status = v[4];
+    buses.push(bus);
   }
   return { feedTs, buses };
+}
+
+/* normalise a route string for matching: '0740' == '740', 'OMS(+)' == 'OMS',
+   '0118EXT(NS) Ext' == '0118EXT' == '118EXT'. Keeps meaningful letters, drops
+   decorations, leading zeros and duplicate EXT markers. */
+export function normRoute(s) {
+  let u = String(s || '').toUpperCase().trim();
+  if (!u) return null;
+  u = u.replace(/\([^)]*\)/g, ' ');                 // drop (NS) (T) etc
+  let toks = u.split(/\s+/).filter(Boolean);
+  toks[0] = toks[0].replace(/^0+(?=\d)/, '');       // strip leading zeros
+  const head = toks[0] || '';
+  if (/EXT$/.test(head)) {
+    // '0118EXT ... Ext' — drop the repeated EXT token
+    toks = [head, ...toks.slice(1).filter((t) => t !== 'EXT')];
+  } else {
+    // '740 Ext' -> '740EXT'
+    toks = toks.filter((t) => t !== 'STL');
+    if (toks.length > 1 && toks[toks.length - 1] === 'EXT') toks = [toks.join('')];
+  }
+  const out = toks.join('').replace(/[^A-Z0-9]/g, '');
+  return out || null;
 }
 
 /* ================================================================= handler */
@@ -143,41 +191,50 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'no-store');
     return res.end(JSON.stringify({ ok: false, error: 'setup' }));
   }
-
   const base = (process.env.OTD_URL || DEFAULT_URL).replace(/\/+$/, '');
-  const url = `${base}?key=${encodeURIComponent(key)}`;
-
-  let raw;
-  try {
-    const ctl = new AbortController();
-    const to = setTimeout(() => ctl.abort(), 15000);
-    const r = await fetch(url, { signal: ctl.signal, headers: { accept: '*/*' } });
-    clearTimeout(to);
-    if (!r.ok) throw new Error('upstream ' + r.status);
-    raw = Buffer.from(await r.arrayBuffer());
-  } catch {
-    res.statusCode = 502;
-    res.setHeader('Cache-Control', 'no-store');
-    return res.end(JSON.stringify({ ok: false, error: 'upstream' }));
-  }
 
   let decoded;
   try {
-    decoded = decodeGtfsRt(raw);
-  } catch {
-    res.statusCode = 400;
+    decoded = decodeGtfsRt(await fetchRaw(key, base));
+  } catch (e) {
+    const bad = e && e.message && String(e.message).startsWith('upstream');
+    res.statusCode = bad ? 502 : 400;
     res.setHeader('Cache-Control', 'no-store');
-    return res.end(JSON.stringify({ ok: false, error: 'badfeed' }));
+    return res.end(JSON.stringify({ ok: false, error: bad ? 'upstream' : 'badfeed' }));
   }
 
-  const body = {
-    ok: true,
-    at: Date.now(),
-    count: decoded.buses.length,
-    buses: decoded.buses,
-  };
+  const qs = new URL(req.url, 'http://x').searchParams;
+  const wantBrief = qs.get('brief') === '1';
+  const route = (qs.get('route') || '').trim();
+
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, max-age=5'); // short: clients may share one burst
+
+  if (wantBrief) {
+    const m = new Map();
+    for (const b of decoded.buses) {
+      const r = b.route;
+      if (!r) continue;
+      m.set(r, (m.get(r) || 0) + 1);
+    }
+    const routes = [...m.entries()]
+      .map(([id, n]) => ({ id, n }))
+      .sort((a, b) => b.n - a.n || a.id.localeCompare(b.id, undefined, { numeric: true }));
+    const body = { ok: true, at: Date.now(), feedTs: decoded.feedTs, count: decoded.buses.length, routes };
+    return res.end(JSON.stringify(body));
+  }
+
+  let buses = decoded.buses;
+  if (route) {
+    const want = normRoute(route);
+    buses = buses.filter((b) => normRoute(b.route) === want);
+  }
+  const body = {
+    ok: true, at: Date.now(), feedTs: decoded.feedTs,
+    count: buses.length, buses,
+    note: route ? 'filtered' : undefined,
+  };
+  if (body.note === undefined) delete body.note;
+  res.setHeader('Cache-Control', 'public, max-age=3');
   res.statusCode = 200;
   return res.end(JSON.stringify(body));
 }
