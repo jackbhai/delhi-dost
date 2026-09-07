@@ -31,24 +31,24 @@
 const DEFAULT_URL = 'https://otd.delhi.gov.in/api/realtime/VehiclePositions.pb';
 
 /* tiny shared cache: several clients + a few polls share one upstream fetch */
-const FEED_CACHE_TTL = 6000;
-let feedCache = null; // { at, raw:Buffer }
+const FEED_CACHE_TTL = 6000;     // fresh window: everyone shares one fetch
+const STALE_MAX_MS = 120000;   // upstream down: keep answering from this window
+let feedCache = null;          // { at, raw:Buffer }
 
 async function fetchRaw(key, base) {
   const now = Date.now();
   if (feedCache && now - feedCache.at < FEED_CACHE_TTL) return feedCache.raw;
   const url = `${base}?key=${encodeURIComponent(key)}`;
-  const ctl = new AbortController();
-  const to = setTimeout(() => ctl.abort(), 15000);
+  let raw = null;
   try {
-    const r = await fetch(url, { signal: ctl.signal, headers: { accept: '*/*' } });
-    if (!r.ok) throw new Error('upstream ' + r.status);
-    const raw = Buffer.from(await r.arrayBuffer());
-    feedCache = { at: now, raw };
-    return raw;
-  } finally {
-    clearTimeout(to);
-  }
+    // 7 s cap — well under the platform's function limit, so a slow upstream
+    // can never make THIS endpoint time out and answer with a bare error page.
+    const r = await fetch(url, { headers: { accept: '*/*' }, signal: AbortSignal.timeout(7000) });
+    if (r.ok) raw = Buffer.from(await r.arrayBuffer());
+  } catch { /* fall through to stale */ }
+  if (raw) { feedCache = { at: now, raw }; return raw; }
+  if (feedCache && now - feedCache.at < STALE_MAX_MS) return feedCache.raw; // stale but real
+  const e = new Error('upstream'); e.upstream = true; throw e;
 }
 
 /* ================================================================ wire fmt */
@@ -193,14 +193,17 @@ export default async function handler(req, res) {
   }
   const base = (process.env.OTD_URL || DEFAULT_URL).replace(/\/+$/, '');
 
-  let decoded;
+  const fetchStarted = Date.now();
+  let decoded, stale = false;
   try {
-    decoded = decodeGtfsRt(await fetchRaw(key, base));
+    const raw = await fetchRaw(key, base);
+    stale = feedCache ? Date.now() - feedCache.at > FEED_CACHE_TTL : false;
+    decoded = decodeGtfsRt(raw);
   } catch (e) {
-    const bad = e && e.message && String(e.message).startsWith('upstream');
-    res.statusCode = bad ? 502 : 400;
+    const up = (e && (e.upstream || String(e.message || '').startsWith('upstream')));
+    res.statusCode = up ? 502 : 400;
     res.setHeader('Cache-Control', 'no-store');
-    return res.end(JSON.stringify({ ok: false, error: bad ? 'upstream' : 'badfeed' }));
+    return res.end(JSON.stringify({ ok: false, error: up ? 'upstream' : 'badfeed' }));
   }
 
   const qs = new URL(req.url, 'http://x').searchParams;
@@ -220,6 +223,8 @@ export default async function handler(req, res) {
       .map(([id, n]) => ({ id, n }))
       .sort((a, b) => b.n - a.n || a.id.localeCompare(b.id, undefined, { numeric: true }));
     const body = { ok: true, at: Date.now(), feedTs: decoded.feedTs, count: decoded.buses.length, routes };
+    if (stale) body.stale = true;
+    res.setHeader('Cache-Control', 'no-store');
     return res.end(JSON.stringify(body));
   }
 
@@ -231,10 +236,12 @@ export default async function handler(req, res) {
   const body = {
     ok: true, at: Date.now(), feedTs: decoded.feedTs,
     count: buses.length, buses,
-    note: route ? 'filtered' : undefined,
   };
-  if (body.note === undefined) delete body.note;
-  res.setHeader('Cache-Control', 'public, max-age=3');
+  if (route) body.note = 'filtered';
+  if (stale) body.stale = true;
+  // no-store: this endpoint always answers from live (or fresh-ish cached)
+  // upstream data; the CDN must never pin an old snapshot.
+  res.setHeader('Cache-Control', 'no-store');
   res.statusCode = 200;
   return res.end(JSON.stringify(body));
 }

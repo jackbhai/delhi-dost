@@ -430,14 +430,16 @@ export function LiveBus() {
             </p>
           </div>)}
 
-        {/* map */}
-        {!busy && (
-          <div style={{ height: route ? '46vh' : '52vh', minHeight: route ? 260 : 300, position: 'relative', background: 'var(--s1)' }}>
-            <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
-            {relay && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center' }}>
-              <div className="state"><span className="dim sm">Map ready — relay se buses aayengi</span></div>
-            </div>}
-          </div>)}
+        {/* map (mounts as soon as we are past connecting; overlay states on top) */}
+        <div style={{ height: route ? '46vh' : '52vh', minHeight: route ? 260 : 300, position: 'relative', background: 'var(--s1)' }}>
+          <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
+          {busy && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 55%, transparent)', zIndex: 400 }}>
+            <div className="state"><span className="spin" /><p>Live buses se jud rahe hain…</p></div>
+          </div>}
+          {!busy && relay && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 45%, transparent)' }}>
+            <div className="state"><p className="dim sm">{setupMode ? 'Server key set nahi — OTDLIVE_KEY + redeploy karo' : 'Relay is host pe nahi — Vercel URL use karo'}</p></div>
+          </div>}
+        </div>
 
         {/* drill-down bus */}
         {selBus && (
