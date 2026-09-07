@@ -9,6 +9,7 @@ import { TrainJourney } from './tools/train-journey';
 import { Hub } from './tools/travel-hub';
 import { Settings } from './tools/settings';
 import { EmergencyDirectory } from './tools/help-dir';
+import { MyStops } from './tools/my-stops';
 import { Spin } from './ui/kit';
 import { Icon } from './ui/icons';
 import logo from './assets/logo.png';
@@ -45,6 +46,7 @@ const TOOLS = [
   { id: 'sos',      n: 'Emergency',     i: 'warn',      c: 'Travel', t: 'live', d: 'Helplines, India & world',               C: W.Emergency },
   { id: 'dial',     n: 'Dial Codes',    i: 'signal',    c: 'Travel', t: 'live', d: 'Country calling codes',                  C: W.DialCodes },
   { id: 'help',     n: 'Emergency Numbers', i: 'phone', c: 'Travel', t: 'off', d: 'Call & WhatsApp — police, metro, rail, bus, hospital', C: EmergencyDirectory },
+  { id: 'stops',    n: 'My Stops',      i: 'star',      c: 'Travel', t: 'off', d: 'Saved stops — live next buses, no search', C: MyStops },
 
   // ---------------- Essentials
   { id: 'weather',  n: 'Weather + AQI', i: 'sun',       c: 'Essentials', t: 'live', d: 'Forecast & air quality',             C: L.Weather },
@@ -133,6 +135,12 @@ export default function App() {
                   <p>Delhi ki har safar ka saathi — Bus · Metro · Train · Live.
                     Sab kuch ek app mein, no login.</p>
                 </div>
+              </div>
+              <div className="qa">
+                <button onClick={() => go('journey')}><Icon n="compass" size={20} /><span>Plan<br/>Journey</span></button>
+                <button onClick={() => go('livebus')}><Icon n="map" size={20} /><span>Live<br/>Buses</span></button>
+                <button onClick={() => go('stops')}><Icon n="star" size={20} /><span>My<br/>Stops</span></button>
+                <button onClick={() => go('help')}><Icon n="phone" size={20} /><span>Emergency<br/>Numbers</span></button>
               </div>
               <div className="pillrow">
                 <span className="pill on"><Icon n="check" size={13} /> {offCount} work offline</span>

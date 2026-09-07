@@ -302,6 +302,26 @@ export function MultiModal() {
   const runMin = solve ? solve.departMin : asked;
   const clk = o ? clockOf(o, runMin) : null;
   const grid = o ? departures(o, runMin, 5, 15) : [];
+
+  /* Share this journey — native share sheet where available, else clipboard. */
+  const [shareMsg, setShareMsg] = useState('');
+  const sharePlan = async () => {
+    if (!o) return;
+    try {
+      const legs = (clk && clk.legs || []).filter((l) => l.kind === 'ride' || l.mode)
+        .map((l) => (l.mode === 'metro' ? `Metro ${l.line || ''}` : l.mode === 'walk' ? 'walk' : `Bus ${l.label || ''}`))
+        .filter(Boolean).join(' · ');
+      const whenTxt = clk ? ` (dep ${clock(clk.departMin)}, arr ${clock(clk.arriveMin)}${clk.afterMidnight ? ' next day' : ''})` : '';
+      const txt = `Delhi DOST — ${from.n} → ${to.n}\n${o.mode} · ${o.minutes} min · ₹${o.fare} · ${o.changes} change${o.changes === 1 ? '' : 's'} · ${o.km} km${whenTxt}${legs ? '\n' + legs : ''}\n— planned in the Delhi DOST app`;
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share({ title: 'Delhi DOST journey', text: txt });
+      } else {
+        await navigator.clipboard.writeText(txt);
+        setShareMsg('Copied!');
+        setTimeout(() => setShareMsg(''), 1500);
+      }
+    } catch { /* cancelled by user — not an error */ }
+  };
   /* Sound. A place being picked is a train going past; a journey being worked
      out is the announcement chime; a plan the timetable cannot support is an air
      brake. All six are synthesised in the browser (core/sfx.js) — no file is
@@ -427,7 +447,12 @@ export function MultiModal() {
           <button key={i} className={`cat ${sel === i ? 'on' : ''}`} onClick={() => { sound('tick'); setSel(i); }}>
             {x.icon} {x.minutes}m · ₹{x.fare}
           </button>))}
-      </div><Card><div className="chead">{o.icon} {o.mode} · {from.n} → {to.n}</div><div className="g3"><div className="stat"><div className="v">{o.minutes}</div><div className="l">Minutes</div></div><div className="stat"><div className="v">₹{o.fare}</div><div className="l">Fare</div></div><div className="stat"><div className="v">{o.changes}</div><div className="l">Changes</div></div></div><div className="g2" style={{ marginTop: 8 }}><div className="stat"><div className="v">{o.km}</div><div className="l">km total</div></div><div className="stat"><div className="v">{o.walkMin}</div><div className="l">min walking</div></div></div></Card>
+      </div><Card><div className="chead" style={{ flexWrap: 'wrap', gap: 8 }}>{o.icon} {o.mode} · {from.n} → {to.n}
+          <span style={{ marginLeft: 'auto' }}>
+            <button className="btn ghost sm" onClick={sharePlan} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <Icon n="sms" size={14} /> {shareMsg || 'Share'}
+            </button>
+          </span></div><div className="g3"><div className="stat"><div className="v">{o.minutes}</div><div className="l">Minutes</div></div><div className="stat"><div className="v">₹{o.fare}</div><div className="l">Fare</div></div><div className="stat"><div className="v">{o.changes}</div><div className="l">Changes</div></div></div><div className="g2" style={{ marginTop: 8 }}><div className="stat"><div className="v">{o.km}</div><div className="l">km total</div></div><div className="stat"><div className="v">{o.walkMin}</div><div className="l">min walking</div></div></div></Card>
 
       {o && clk && clk.legs.length > 0 && (
         <Card>

@@ -224,3 +224,26 @@ button:focus-visible { outline: 2px solid rgba(255,176,32,.7); outline-offset: 2
 .qcall:hover { border-color: rgba(255,176,32,.7); }
 .qcall b { font-family: var(--font-display); letter-spacing: .5px; }
 .qcall span.dim { line-height: 1.25; }
+
+/* ------------------------------------------------------ home quick actions */
+.qa {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 9px; margin-top: 16px;
+}
+.qa button {
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  background: linear-gradient(180deg, var(--s2), var(--s1));
+  border: 1px solid var(--line); border-radius: 17px; color: var(--fg);
+  padding: 13px 4px 11px; cursor: pointer; font: inherit;
+  transition: transform .13s ease, border-color .15s, box-shadow .15s;
+}
+.qa button .ico {
+  width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center;
+  background: radial-gradient(circle at 30% 20%, rgba(255,176,32,.28), rgba(255,93,115,.10) 55%, var(--s3));
+  border: 1px solid rgba(255,176,32,.22); color: var(--green);
+}
+.qa button:nth-child(2) .ico { background: radial-gradient(circle at 30% 20%, rgba(76,201,255,.26), rgba(76,201,255,.06) 60%, var(--s3)); border-color: rgba(76,201,255,.25); color: var(--cyan); }
+.qa button:nth-child(4) .ico { background: radial-gradient(circle at 30% 20%, rgba(255,93,115,.30), rgba(255,93,115,.08) 60%, var(--s3)); border-color: rgba(255,93,115,.3); color: #FF8FA3; }
+.qa button span { font-size: 10.5px; font-weight: 700; line-height: 1.15; text-align: center; color: var(--fg2); }
+.qa button:active { transform: scale(.94); }
+.qa button:hover, .qa button:focus-visible { border-color: rgba(255,176,32,.5); }
+@media (max-width: 359px) { .qa { gap: 6px; } .qa button span { font-size: 9.5px; } }
