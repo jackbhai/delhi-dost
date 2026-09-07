@@ -6,8 +6,8 @@
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "browser"],
   "orientation": "any",
-  "background_color": "#0B0F17",
-  "theme_color": "#0B0F17",
+  "background_color": "#000000",
+  "theme_color": "#000000",
   "description": "Delhi travel companion — bus routes & timetables, live buses on a map, metro fares with first & last trains, live train status, multi-modal journey planner, near-me places and travel help. No login, works offline.",
   "categories": ["travel", "navigation", "utilities"],
   "dir": "ltr",
@@ -15,7 +15,6 @@
   "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
   "handle_links": "preferred",
   "icons": [
-    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
     { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }

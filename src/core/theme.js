@@ -4,15 +4,41 @@
  * Stores in localStorage, applies via CSS variables
  */
 
-const THEME_KEY = 'dost:theme';
-const CUSTOM_THEME_KEY = 'dost:custom-theme';
+const THEME_KEY = 'omni:theme';
+const CUSTOM_THEME_KEY = 'omni:custom-theme';
 
 export const THEMES = {
+
+  amoled: {
+    id: 'amoled',
+    name: 'AMOLED Black · Default',
+    nameHi: 'एमोलेड ब्लैक',
+    description: 'Pure black #000000 · default theme · maximum battery saving',
+    colors: {
+      '--bg': '#000000',
+      '--s1': '#000000',
+      '--s2': '#0A0A0A',
+      '--s3': '#141414',
+      '--line': '#1A1A1A',
+      '--line2': '#2A2A2A',
+      '--green': '#FFB020',
+      '--green-dim': '#D9950D',
+      '--cyan': '#4CC9FF',
+      '--cyan-dim': '#2F9EDB',
+      '--fg': '#F2F6FF',
+      '--fg2': '#9AA7BD',
+      '--fg3': '#4E5B70',
+      '--warn': '#FFCC00',
+      '--bad': '#FF3366',
+    },
+    isDark: true,
+  },
+
   dark: {
     id: 'dark',
-    name: 'DOST Dark (Default)',
-    nameHi: 'डॉस्ट डार्क',
-    description: 'AMOLED black + green + cyan - Battery saving',
+    name: 'DOST Navy',
+    nameHi: 'डॉस्ट नेवी',
+    description: 'Deep navy + amber - the classic Delhi DOST look',
     colors: {
       '--bg': '#0B0F17',
       '--s1': '#111A2B',
@@ -32,11 +58,12 @@ export const THEMES = {
     },
     isDark: true,
   },
+
   light: {
     id: 'light',
     name: 'Light',
     nameHi: 'लाइट',
-    description: 'Warm paper + amber - Day mode',
+    description: 'Clean white + green - Day mode',
     colors: {
       '--bg': '#FFFDF7',
       '--s1': '#FAF3E7',
@@ -56,30 +83,7 @@ export const THEMES = {
     },
     isDark: false,
   },
-  amoled: {
-    id: 'amoled',
-    name: 'AMOLED Pure Black',
-    nameHi: 'एमोलेड प्योर ब्लैक',
-    description: 'Pure black #000000 - Maximum battery saving',
-    colors: {
-      '--bg': '#000000',
-      '--s1': '#000000',
-      '--s2': '#0A0A0A',
-      '--s3': '#141414',
-      '--line': '#1A1A1A',
-      '--line2': '#2A2A2A',
-      '--green': '#00FF88',
-      '--green-dim': '#00CC6A',
-      '--cyan': '#00D4FF',
-      '--cyan-dim': '#00A8CC',
-      '--fg': '#FFFFFF',
-      '--fg2': '#A0A0A0',
-      '--fg3': '#606060',
-      '--warn': '#FFCC00',
-      '--bad': '#FF3366',
-    },
-    isDark: true,
-  },
+
   ocean: {
     id: 'ocean',
     name: 'Ocean Blue',
@@ -104,6 +108,7 @@ export const THEMES = {
     },
     isDark: true,
   },
+
   forest: {
     id: 'forest',
     name: 'Forest Green',
@@ -128,6 +133,7 @@ export const THEMES = {
     },
     isDark: true,
   },
+
   sunset: {
     id: 'sunset',
     name: 'Sunset Orange',
@@ -152,6 +158,7 @@ export const THEMES = {
     },
     isDark: true,
   },
+
   midnight: {
     id: 'midnight',
     name: 'Midnight Purple',
@@ -177,12 +184,11 @@ export const THEMES = {
     isDark: true,
   },
 };
-
 export function getCurrentThemeId() {
   try {
-    return localStorage.getItem(THEME_KEY) || 'dark';
+    return localStorage.getItem(THEME_KEY) || 'amoled';
   } catch {
-    return 'dark';
+    return 'amoled';
   }
 }
 
@@ -211,7 +217,7 @@ export function applyTheme(themeId) {
   if (themeId === 'custom' && custom) {
     theme = custom;
   } else {
-    theme = THEMES[themeId] || THEMES.dark;
+    theme = THEMES[themeId] || THEMES.amoled;
   }
 
   const root = document.documentElement;

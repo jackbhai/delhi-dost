@@ -265,6 +265,7 @@ export function Settings() {
                 }}
               >
                 {currentTheme === id && <span style={{ position: 'absolute', top: 6, right: 6, fontSize: 10, color: theme.colors['--green'] }}>● Active</span>}
+                {id === 'amoled' && currentTheme !== 'amoled' && <span style={{ position: 'absolute', top: 6, left: 6, fontSize: 9, color: theme.colors['--fg3'] }}>DEFAULT</span>}
                 <div style={{ display: 'flex', gap: 4, marginBottom: 6 }}>
                   <span style={{ width: 16, height: 16, borderRadius: 4, background: theme.colors['--bg'], border: `1px solid ${theme.colors['--line']}` }} />
                   <span style={{ width: 16, height: 16, borderRadius: 4, background: theme.colors['--green'] }} />
@@ -283,7 +284,7 @@ export function Settings() {
               <Icon n="pen" size={14} /> {showCustomMaker ? 'Close Custom Maker' : 'Make Your Own Theme - Custom Colors'}
             </button>
             {customTheme && (
-              <button className="btn ghost" onClick={() => { localStorage.removeItem('dost:custom-theme'); setCustomTheme(null); if (currentTheme === 'custom') handleThemeChange('dark'); }}>
+              <button className="btn ghost" onClick={() => { localStorage.removeItem('dost:custom-theme'); setCustomTheme(null); if (currentTheme === 'custom') handleThemeChange('amoled'); }}>
                 <Icon n="x" size={14} /> Delete Custom Theme
               </button>
             )}

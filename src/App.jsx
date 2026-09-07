@@ -10,6 +10,7 @@ import { Hub } from './tools/travel-hub';
 import { Settings } from './tools/settings';
 import { Spin } from './ui/kit';
 import { Icon } from './ui/icons';
+import logo from './assets/logo.png';
 
 /* ------------------------------------------------------------------ travel hubs
    Heavy transit data (bus + metro) stays behind React.lazy: nothing of the
@@ -100,7 +101,7 @@ export default function App() {
         <header className="topbar">
           {tool
             ? <button className="iconbtn" onClick={() => go('')} aria-label="Back"><Icon n="back" size={19} /></button>
-            : <span className="brand gradtext">DOST</span>}
+            : <span className="brandmark"><img className="brandlogo" src={logo} alt="" /><span className="brand gradtext">DOST</span></span>}
           <div className="tb-t">
             <b>{tool ? tool.n : 'Delhi DOST'}</b>
             <span>{tool ? tool.d : `${TOOLS.length} travel tools · no login`}</span>
@@ -123,9 +124,14 @@ export default function App() {
         <div className="main-area">
           {!tool && (<>
             <div className="hero dost-hero">
-              <h1 className="gradtext">DELHI<br />DOST</h1>
-              <p>Bus · Metro · Train · Live buses — Delhi ki har safar ka saathi.
-                Sab kuch ek app mein, no login.</p>
+              <div className="hero-lockup">
+                <img className="hero-logo" src={logo} alt="Delhi DOST" />
+                <div className="hero-txt">
+                  <h1 className="gradtext">DELHI DOST</h1>
+                  <p>Delhi ki har safar ka saathi — Bus · Metro · Train · Live.
+                    Sab kuch ek app mein, no login.</p>
+                </div>
+              </div>
               <div className="pillrow">
                 <span className="pill on"><Icon n="check" size={13} /> {offCount} work offline</span>
                 <span className="pill"><Icon n="refresh" size={13} /> Auto-fallback</span>
