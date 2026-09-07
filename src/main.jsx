@@ -2,7 +2,8 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles/theme.css';
-import './styles/dost.css';
+import './styles/dost.css'
+import './styles/polish.css';
 import { initTheme } from './core/theme.js';
 import { initPWA } from './core/pwa.js';
 import { ErrorBoundary } from './ErrorBoundary';

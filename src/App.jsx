@@ -169,8 +169,10 @@ export default function App() {
             {shown.length === 0
               ? <div className="state">No tools match &ldquo;{q}&rdquo;</div>
               : <div className="grid">
-                  {shown.map((t) => (
-                    <button className="tile" key={t.id} onClick={() => go(t.id)}>
+                  {shown.map((t, i) => (
+                    <button className="tile" key={t.id} data-c={t.c}
+                      style={{ animationDelay: `${(i % 10) * 26}ms` }}
+                      onClick={() => go(t.id)}>
                       {t.t === 'live' ? <span className="live" /> : <span className="off">OFF</span>}
                       <span className="ic"><Icon n={t.i} size={24} /></span>
                       <b>{t.n}</b>

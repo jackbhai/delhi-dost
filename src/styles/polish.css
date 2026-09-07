@@ -1,0 +1,322 @@
+/* ============================================================
+   Delhi DOST — “Pro” design layer
+   One coherent surface language over every tool:
+   · pure-black AMOLED canvas with a faint ambient aurora
+   · layered translucent surfaces (depth without heaviness)
+   · accent-tinted icon wells + category colour coding
+   · big, confident type on display font; tabular numerals
+   · gentle stagger entrances, sheen sweeps, press physics
+   All colours run through CSS vars so every theme stays coherent.
+   ============================================================ */
+
+:root {
+  --r: 20px; --r-sm: 14px;
+  --amber: #FFB020; --rose: #FF5D73; --sky: #4CC9FF;
+  --dur: .18s cubic-bezier(.34,1.56,.64,1);
+}
+
+/* ------------------------------------------------ ambient canvas */
+.app::before {
+  content: ""; position: fixed; z-index: -1; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(1100px 420px at 50% -160px,
+      rgba(255,176,32,.085), rgba(255,93,115,.028) 46%, transparent 72%),
+    radial-gradient(760px 340px at 112% -90px,
+      rgba(76,201,255,.06), transparent 66%);
+}
+[data-theme="light"] .app::before { opacity: .55; }
+
+body { font-variant-numeric: tabular-nums; }
+
+/* scrollbar: hairline, accent-tinted thumb */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255,176,32,.55), rgba(255,93,115,.4));
+  border-radius: 99px;
+}
+
+/* ------------------------------------------------------------- topbar */
+.topbar {
+  background: color-mix(in srgb, var(--bg) 68%, transparent) !important;
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
+  padding-top: calc(10px + var(--safe-t)); padding-bottom: 10px;
+}
+.brandmark .brandlogo {
+  width: 32px; height: 32px; border-radius: 10px;
+  box-shadow: 0 0 0 1.5px rgba(255,176,32,.55),
+    0 0 18px -2px rgba(255,176,32,.55), 0 6px 16px -6px rgba(255,176,32,.8);
+}
+.brand { font-size: 21px; letter-spacing: 2.6px; }
+.iconbtn {
+  background: color-mix(in srgb, var(--s2) 74%, transparent);
+  backdrop-filter: blur(8px);
+  border-radius: 13px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  transition: transform .14s cubic-bezier(.34,1.56,.64,1), border-color .15s,
+    background .15s, color .15s;
+}
+.iconbtn:hover { border-color: rgba(255,176,32,.5); color: var(--fg); }
+.iconbtn:active { transform: scale(.88); background: var(--s3); }
+
+/* ------------------------------------------------------------- hero */
+.dost-hero {
+  position: relative;
+  margin: 4px 0 0;
+  padding: 20px 4px 6px;
+  overflow: hidden;
+}
+.dost-hero::before { /* keep the existing corner bloom */
+  inset: -60px -90px auto auto; width: 260px; height: 260px;
+  background: radial-gradient(closest-side, rgba(255,176,32,.20), rgba(76,201,255,.05), transparent);
+  animation: breathe 5.2s ease-in-out infinite;
+}
+.dost-hero::after { /* faint route-line motif across the hero */
+  content: ""; position: absolute; left: -70px; right: -70px; top: 6px; height: 90px;
+  background:
+    radial-gradient(420px 130px at 8% 8%, rgba(255,176,32,.10), transparent 68%),
+    radial-gradient(340px 120px at 92% 6%, rgba(76,201,255,.09), transparent 70%);
+  pointer-events: none;
+}
+@keyframes breathe { 50% { opacity: .55; transform: scale(1.06); } }
+
+.hero-logo {
+  width: 86px; height: 86px; border-radius: 26px;
+  box-shadow: 0 0 0 1px rgba(255,176,32,.5),
+    0 0 0 5px rgba(255,176,32,.07),
+    0 18px 44px -12px rgba(255,176,32,.6),
+    inset 0 0 0 1px rgba(255,255,255,.12);
+}
+.hero h1 { font-size: clamp(40px, 12vw, 56px); letter-spacing: 3px; text-shadow: 0 0 42px rgba(255,176,32,.25); }
+.hero p { font-size: 13.5px; max-width: 30ch; }
+.pillrow { gap: 7px; margin-top: 14px; }
+.pill {
+  padding: 5.5px 12px; font-size: 10.8px; font-weight: 650;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.pill.on {
+  background: linear-gradient(135deg, rgba(255,176,32,.16), rgba(255,93,115,.10));
+  box-shadow: inset 0 0 0 1px rgba(255,176,32,.35), 0 0 16px -6px rgba(255,176,32,.5);
+}
+.pill .ico { filter: drop-shadow(0 0 4px rgba(255,176,32,.4)); }
+
+/* ------------------------------------------------------------ search */
+.search {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--s2) 72%, var(--bg));
+  border-color: var(--line2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 26px -18px rgba(0,0,0,.9);
+}
+.search:focus-within {
+  border-color: rgba(255,176,32,.65);
+  box-shadow: 0 0 0 3.5px rgba(255,176,32,.16), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.search .ico { filter: drop-shadow(0 0 5px rgba(255,176,32,.45)); }
+
+/* ------------------------------------------------------------- cats */
+.cats { gap: 8px; padding: 2px 0 13px; scrollbar-width: none; }
+.cat {
+  padding: 8.5px 16px; border-radius: 999px; font-size: 12.6px; font-weight: 650;
+  background: color-mix(in srgb, var(--s2) 84%, var(--bg));
+  transition: transform .15s, background .18s, color .18s, border-color .18s, box-shadow .18s;
+}
+.cat:not(.on):hover { border-color: rgba(255,176,32,.45); color: var(--fg); }
+.cat.on {
+  background-image: linear-gradient(135deg, #FFB020 0%, #FF8A3C 55%, #FF5D73 120%);
+  color: #170800; box-shadow: 0 8px 22px -8px rgba(255,140,60,.75), inset 0 1px 0 rgba(255,255,255,.35);
+}
+
+/* ------------------------------------------------------------- tiles */
+.grid { gap: 12px; }
+.tile {
+  border-radius: 19px; padding: 16px 8px 13px; gap: 7px; min-height: 118px;
+  background:
+    radial-gradient(130px 90px at 50% -14%, rgba(255,176,32,.13), transparent 70%),
+    linear-gradient(180deg, var(--s2) 0%, var(--s1) 100%);
+  border: 1px solid var(--line);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 14px 30px -22px rgba(0,0,0,.9);
+  animation: tileUp .44s cubic-bezier(.2,.75,.3,1) both;
+}
+.tile:hover, .tile:focus-visible {
+  border-color: rgba(255,176,32,.5);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.07),
+    0 0 0 1px rgba(255,176,32,.12), 0 14px 30px -18px rgba(255,176,32,.55);
+  transform: translateY(-2px);
+}
+.tile::after { /* sheen sweep on hover */
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.06) 50%, transparent 62%);
+  transform: translateX(-120%); transition: transform .55s ease;
+}
+.tile:hover::after { transform: translateX(120%); }
+.tile:active { transform: scale(.95); }
+@keyframes tileUp { from { opacity: 0; transform: translateY(9px) scale(.985); } to { opacity: 1; transform: none; } }
+
+.tile .ic {
+  width: 54px; height: 54px; border-radius: 18px;
+  background:
+    radial-gradient(circle at 28% 16%, rgba(255,255,255,.14), transparent 46%),
+    radial-gradient(circle at 30% 18%, rgba(255,176,32,.34), rgba(255,93,115,.14) 55%, var(--s3) 92%);
+  border: 1px solid rgba(255,176,32,.3);
+  color: var(--amber);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 18px -10px rgba(255,176,32,.65);
+}
+.tile .ic svg { width: 27px; height: 27px; }
+.tile b { font-size: 12.8px; font-weight: 750; letter-spacing: -.1px; }
+.tile small { font-size: 9.8px; line-height: 1.35; color: var(--fg3); max-width: 13ch; }
+
+/* category tinting: Travel amber (above) · Essentials cyan · App rose */
+.tile[data-c="Essentials"] { background:
+    radial-gradient(130px 90px at 50% -14%, rgba(76,201,255,.12), transparent 70%),
+    linear-gradient(180deg, var(--s2), var(--s1)); }
+.tile[data-c="Essentials"] .ic {
+  background:
+    radial-gradient(circle at 28% 16%, rgba(255,255,255,.13), transparent 46%),
+    radial-gradient(circle at 30% 18%, rgba(76,201,255,.30), rgba(76,201,255,.10) 60%, var(--s3) 92%);
+  border-color: rgba(76,201,255,.32); color: var(--sky);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 18px -10px rgba(76,201,255,.6);
+}
+.tile[data-c="App"] { background:
+    radial-gradient(130px 90px at 50% -14%, rgba(255,93,115,.11), transparent 70%),
+    linear-gradient(180deg, var(--s2), var(--s1)); }
+.tile[data-c="App"] .ic {
+  background:
+    radial-gradient(circle at 28% 16%, rgba(255,255,255,.13), transparent 46%),
+    radial-gradient(circle at 30% 18%, rgba(255,93,115,.30), rgba(255,93,115,.10) 60%, var(--s3) 92%);
+  border-color: rgba(255,93,115,.34); color: #FF8FA3;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 8px 18px -10px rgba(255,93,115,.55);
+}
+.tile[data-c="Essentials"]:hover, .tile[data-c="Essentials"]:focus-visible { border-color: rgba(76,201,255,.55); }
+.tile[data-c="App"]:hover, .tile[data-c="App"]:focus-visible { border-color: rgba(255,93,115,.55); }
+
+/* live / offline corner marks */
+.tile > .live {
+  top: 10px; right: 10px; width: 7px; height: 7px;
+  box-shadow: 0 0 8px 1px rgba(255,176,32,.8);
+}
+.tile > .off {
+  top: 8px; right: 9px; font-size: 7.6px; letter-spacing: .8px; padding: 2px 7px;
+  background: color-mix(in srgb, var(--s3) 70%, transparent);
+}
+
+/* ------------------------------------------- home quick actions */
+.qa { gap: 10px; margin-top: 18px; }
+.qa button {
+  border-radius: 19px; padding: 14px 4px 12px;
+  background:
+    radial-gradient(90px 60px at 50% -10%, rgba(255,176,32,.14), transparent 75%),
+    linear-gradient(180deg, var(--s2), var(--s1));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 12px 24px -20px rgba(0,0,0,.9);
+}
+.qa button .ico {
+  width: 46px; height: 46px; border-radius: 15px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 6px 14px -8px rgba(255,176,32,.7);
+}
+.qa button span { font-size: 10.8px; }
+.qa button:hover { border-color: rgba(255,176,32,.55); transform: translateY(-2px); }
+.qa button:nth-child(3) .ico,
+.qa button:nth-child(3):hover { border-color: rgba(76,201,255,.4); }
+
+/* ------------------------------------------------------- cards */
+.card {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--s2) 46%, var(--s1)) 0%, var(--s1) 58%);
+  border-radius: var(--r);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 18px 40px -30px rgba(0,0,0,.95);
+}
+.chead { font-size: 11.4px; letter-spacing: 1.3px; color: var(--fg3); }
+.chead .ico { color: var(--amber); filter: drop-shadow(0 0 5px rgba(255,176,32,.4)); }
+
+/* stats read like a dashboard now */
+.g2, .g3 { gap: 10px; }
+.stat {
+  border-radius: 15px; padding: 12px 8px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--s2) 70%, var(--bg)), var(--s2) 90%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+.stat .v { font-family: var(--font-display); font-size: 21px; letter-spacing: -.2px; }
+.stat .l { font-size: 9.2px; letter-spacing: .7px; }
+
+/* lists: soft zebra, hairline separators */
+.list { border-radius: var(--r); box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+.row, .col { padding: 12.5px 15px; }
+.row:nth-child(even), .col:nth-child(even) { background: color-mix(in srgb, var(--s1) 82%, var(--s2)); }
+.row:active, .col:active { background: var(--s3); }
+.row > .ico, .col > .ico { color: var(--amber); }
+.kv { padding: 10.5px 0; font-size: 13.6px; }
+.kv b { font-weight: 650; color: var(--fg); }
+
+/* tags */
+.tag { border-radius: 7px; font-weight: 700; letter-spacing: .2px; }
+
+/* buttons */
+.btn { border-radius: 13px; font-weight: 750; letter-spacing: .1px; }
+.btn.ghost {
+  background: color-mix(in srgb, var(--s2) 82%, var(--bg));
+  border: 1px solid var(--line2);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  transition: transform .14s cubic-bezier(.34,1.56,.64,1), border-color .15s, box-shadow .15s;
+}
+.btn.ghost:hover { border-color: rgba(255,176,32,.5); }
+.btnrow { gap: 8px; }
+
+/* inputs */
+.fld input, .fld select, .fld textarea { border-radius: 14px; }
+
+/* state */
+.state { gap: 13px; padding: 42px 16px; }
+.state .ico {
+  width: 54px; height: 54px; display: grid; place-items: center; border-radius: 17px;
+  background: color-mix(in srgb, var(--s3) 60%, transparent); border: 1px solid var(--line);
+  color: var(--fg3);
+}
+
+/* live dots keep their halo but become slightly softer */
+.dot { box-shadow: 0 0 8px 1px rgba(255,176,32,.55); }
+
+/* ------------------------------------------------- bottom nav */
+.nav {
+  background: color-mix(in srgb, var(--bg) 72%, transparent) !important;
+  backdrop-filter: blur(24px) saturate(1.35);
+  -webkit-backdrop-filter: blur(24px) saturate(1.35);
+  border-top: 1px solid color-mix(in srgb, var(--line2) 60%, transparent);
+  padding-bottom: calc(var(--safe-b) + 4px);
+}
+.nav button { padding: 8px 2px; border-radius: 14px; transition: color .15s, transform .13s; margin: 2px 6px 0; }
+.nav button:active { transform: scale(.9); }
+.nav button.on { color: var(--amber); }
+.nav button.on::before {
+  inset: 2px 0; border-radius: 13px;
+  background: linear-gradient(180deg, rgba(255,176,32,.17), rgba(255,93,115,.04) 85%);
+  border: 1px solid rgba(255,176,32,.3);
+}
+.nav button.on .ico { filter: drop-shadow(0 0 6px rgba(255,176,32,.6)); }
+.nav button small { letter-spacing: .25px; }
+
+/* subtle entrance for quick actions too */
+.qa button { animation: tileUp .4s cubic-bezier(.2,.75,.3,1) both; }
+.qa button:nth-child(1) { animation-delay: .03s; }
+.qa button:nth-child(2) { animation-delay: .07s; }
+.qa button:nth-child(3) { animation-delay: .11s; }
+.qa button:nth-child(4) { animation-delay: .15s; }
+
+/* ------------------------------------------------- emergency */
+.qcall {
+  border-radius: 15px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--s2) 55%, var(--s1)), var(--s1));
+}
+.qcall:hover { border-color: rgba(255,176,32,.55); transform: translateY(-1px); }
+
+/* ------------------------------------------------- responsiveness */
+@media (min-width: 680px) {
+  .grid { gap: 14px; }
+  .tile { min-height: 126px; border-radius: 21px; }
+  .tile .ic { width: 58px; height: 58px; border-radius: 19px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tile, .qa button { animation: none; }
+  .dost-hero::before { animation: none; }
+  .tile::after { display: none; }
+}
