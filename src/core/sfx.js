@@ -123,7 +123,7 @@ function swept(ctx, dest, o) {
  */
 export const SOUNDS = {
   whoosh: {
-    label: 'A train going past', when: 'you pick a place in a search box',
+    fileName: 'whoosh', label: 'Soft door whoosh', when: 'you pick a place in a search box',
     dur: 1.25, minMs: 220,
     build(ctx, dest, t) {
       swept(ctx, dest, { t, dur: 1.15, peak: 0.34, f: 240, f1: 1600, f2: 205,
@@ -141,7 +141,7 @@ export const SOUNDS = {
     },
   },
   ding: {
-    label: 'One station bell', when: 'an alert you asked for has been armed',
+    fileName: 'ding', label: 'Stop-request bell', when: 'an alert you asked for has been armed',
     dur: 0.55, minMs: 140,
     build(ctx, dest, t) {
       tone(ctx, dest, { f: NOTE.C6, t, dur: 0.42, peak: 0.19 });
@@ -149,7 +149,7 @@ export const SOUNDS = {
     },
   },
   alight: {
-    label: 'Get off now — three bells', when: 'a get-off alert fires',
+    fileName: 'alight', label: 'Get off now', when: 'a get-off alert fires',
     dur: 1.15, minMs: 60, whileHidden: true,
     build(ctx, dest, t) {
       for (let i = 0; i < 3; i++) {
@@ -161,7 +161,7 @@ export const SOUNDS = {
     },
   },
   brake: {
-    label: 'Air brake — that will not work', when: 'a plan the timetable cannot support',
+    fileName: 'brake', label: 'Bus air-brake — not possible', when: 'a plan the timetable cannot support',
     dur: 0.95, minMs: 260,
     build(ctx, dest, t) {
       swept(ctx, dest, { t, dur: 0.8, peak: 0.3, type: 'highpass', f: 2400, f1: 2600,
@@ -171,23 +171,88 @@ export const SOUNDS = {
     },
   },
   tick: {
-    label: 'A key press', when: 'an option, a sort, a departure chip',
+    fileName: 'tick', label: 'Card-tap chirp', when: 'an option, a sort, a departure chip',
     dur: 0.1, minMs: 45,
     build(ctx, dest, t) {
       tone(ctx, dest, { type: 'square', f: 1180, to: 900, t, dur: 0.045, peak: 0.075 });
     },
   },
   chime: {
-    label: 'Four ascending bells — here it is', when: 'a journey has been worked out',
+    fileName: 'chime', label: 'Metro platform chime', when: 'a journey has been worked out',
     dur: 0.85, minMs: 300,
     build(ctx, dest, t) {
       [NOTE.C6, NOTE.E6, NOTE.G6, NOTE.C7].forEach((f, i) =>
         tone(ctx, dest, { f, t: t + i * 0.09, dur: 0.34, peak: i === 3 ? 0.2 : 0.15 }));
     },
   },
+  horn: {
+    fileName: 'horn-train', label: 'Train air horn', when: 'a train moment',
+    dur: 1.5, minMs: 1200,
+    build(ctx, dest, t) {
+      [NOTE.D5 - 5, NOTE.G5].forEach((f) =>
+        tone(ctx, dest, { type: 'sawtooth', f, t: t + 0.06, dur: 1.2, peak: 0.1 }));
+      tone(ctx, dest, { f: 78, t: t + 0.06, dur: 1.2, peak: 0.2 });
+    },
+  },
+  honk: {
+    fileName: 'honk-bus', label: 'Bus horn', when: 'a bus moment',
+    dur: 0.6, minMs: 500,
+    build(ctx, dest, t) {
+      tone(ctx, dest, { type: 'sawtooth', f: 466, t, dur: 0.5, peak: 0.14 });
+      tone(ctx, dest, { f: 466, t, dur: 0.5, peak: 0.14 });
+    },
+  },
+  whistle: {
+    fileName: 'whistle', label: 'All-clear whistle', when: 'a trip finishes',
+    dur: 1.0, minMs: 700,
+    build(ctx, dest, t) {
+      tone(ctx, dest, { f: 1318.5, t, dur: 0.3, peak: 0.13 });
+      tone(ctx, dest, { f: 1760, t: t + 0.42, dur: 0.4, peak: 0.13 });
+    },
+  },
 };
 
 export const SOUND_NAMES = Object.keys(SOUNDS);
+
+/* ================================================================
+   PREMIUM SOUND LAYER — real recorded-style samples
+   ----------------------------------------------------------------
+   Each SOUNDS entry can map to a real .wav under /sfx/. The engine
+   fetches them lazily once the user first interacts (attach()), keeps
+   the decoded AudioBuffers in memory and plays the sample instead of
+   the synth graph whenever one is ready. If a sample has not arrived
+   (first tap, offline, slow network) the built-in synth below plays,
+   so nothing ever goes silent. Samples are tiny (<70 KB each).
+   ================================================================ */
+
+const FILE_OF = {
+  whoosh: 'whoosh', tick: 'tick', ding: 'ding', brake: 'brake',
+  alight: 'alight', chime: 'chime',
+  horn: 'horn-train', honk: 'honk-bus', whistle: 'whistle',
+};
+const SAMPLES = new Map();          // name -> AudioBuffer
+let samplesQueued = false;
+
+async function preloadSamples() {
+  if (samplesQueued) return;
+  samplesQueued = true;
+  try {
+    if (typeof fetch !== 'function') return;
+    const base = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL)
+      ? import.meta.env.BASE_URL : '/';
+    const c = context();            // may stay suspended — decoding still works
+    if (!c) return;
+    await Promise.allSettled(Object.entries(FILE_OF).map(async ([name, file]) => {
+      try {
+        const r = await fetch(`${base}sfx/${file}.wav`, { mode: 'cors' });
+        if (!r.ok) return;
+        const ab = await r.arrayBuffer();
+        const buf = await c.decodeAudioData(ab);
+        if (buf && buf.duration > 0.005) SAMPLES.set(name, buf);
+      } catch { /* synth covers it */ }
+    }));
+  } catch { /* never fatal */ }
+}
 
 /* --------------------------------------------------------------- plumbing */
 
@@ -272,8 +337,25 @@ export function play(name, { delay = 0 } = {}) {
   if (prev != null && now - prev < rec.minMs) return note(name, { ...res, why: 'too soon' });
   const c = context();
   if (!c) return note(name, { ...res, why: failed || 'no audio context yet' });
+  if (!samplesQueued && rec.fileName && !SAMPLES.has(name)) preloadSamples();
   try {
-    rec.build(c, master, c.currentTime + Math.max(0, delay));
+    const when = c.currentTime + Math.max(0, delay);
+    const buf = SAMPLES.get(name);
+    if (buf) {
+      const src = c.createBufferSource();
+      src.buffer = buf;
+      const g = c.createGain();
+      g.gain.value = 0.85;
+      src.connect(g).connect(master);
+      src.start(when);
+      // gentle haptic companion on the get-off alert
+      if (name === 'alight' && typeof navigator !== 'undefined' && navigator.vibrate) {
+        try { navigator.vibrate([70, 60, 140]); } catch { /* ignored */ }
+      }
+      lastAt.set(name, now);
+      return note(name, { ...res, ok: true, sample: true, dur: buf.duration });
+    }
+    rec.build(c, master, when);
     lastAt.set(name, now);
     return note(name, { ...res, ok: true, dur: rec.dur });
   } catch (e) {
@@ -314,6 +396,19 @@ let ATTACHED = null;
 export function attach(root) {
   if (typeof window === 'undefined') return () => {};
   if (ATTACHED) return ATTACHED.off;
+  /* Samples load after the first real interaction (pointer/key/touch), never
+     before: creating AudioContext earlier only earns a console warning and an
+     auto-play block, and the sounds are wanted precisely when a finger is on
+     the screen anyway. */
+  const kick = () => {
+    if (enabled() && !samplesQueued) preloadSamples();
+    try { document.removeEventListener('pointerdown', kick, true); } catch {}
+    try { document.removeEventListener('keydown', kick, true); } catch {}
+    try { document.removeEventListener('touchstart', kick, true); } catch {}
+  };
+  document.addEventListener('pointerdown', kick, true);
+  document.addEventListener('keydown', kick, true);
+  document.addEventListener('touchstart', kick, true);
   const host = (root && root.addEventListener ? root : document);
   const soundFor = (el) => {
     for (const [sel, name] of PRESS_SOUNDS) {

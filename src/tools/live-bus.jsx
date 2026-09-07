@@ -46,6 +46,7 @@ export function LiveBus() {
   const [q, setQ] = useState('');
   const [fit, setFit] = useState(0);
   const [attempt, setAttempt] = useState(0);
+  const [relay, setRelay] = useState(null); // null=checking, 'none', 'setup'
   const boxRef = useRef(null);
   const mapRef = useRef(null);
   const leafRef = useRef(null);
@@ -63,13 +64,22 @@ export function LiveBus() {
         setBuses(list); setAt(Date.now()); setErr('');
       } catch (e) {
         if (!alive) return;
+        const status = e && e.message;
+        if (status === '404' || status === '503') {
+          // relay does not exist here (or key not set yet): no point polling
+          setRelay(status === '503' ? 'setup' : 'none');
+          alive = false;
+          clearInterval(timer);
+          if (status === '404') setBuses((prev) => prev ?? []);
+          return;
+        }
         setErr(e.name === 'AbortError' ? 'timed out' : 'unreachable');
         setBuses((prev) => prev ?? []);
       } finally { clearTimeout(to); }
     };
     tick();
     timer = setInterval(tick, REFRESH_MS);
-    const vis = () => { if (!document.hidden) tick(); };
+    const vis = () => { if (!document.hidden && alive) tick(); };
     document.addEventListener('visibilitychange', vis);
     return () => { alive = false; clearInterval(timer); document.removeEventListener('visibilitychange', vis); };
   }, [attempt]);
@@ -148,7 +158,8 @@ export function LiveBus() {
   }, [list, q]);
 
   const busy = buses === null;
-  const dead = !busy && !!err && list.length === 0;
+  const dead = !busy && (!!err && list.length === 0 || relay === 'none' || relay === 'setup');
+  const setupMode = relay === 'setup';
 
   return (
     <div style={{ paddingBottom: 30 }}>

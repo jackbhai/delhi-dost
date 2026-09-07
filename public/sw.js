@@ -5,13 +5,14 @@
  *   - /api/*                     -> never intercepted (live data must stay fresh)
  *   - everything cross-origin    -> never touched
  */
-const V = 'dost-v3';
+const V = 'dost-v4';
+const SFX = 'dost-sfx-v1';
 
 self.addEventListener('install', () => self.skipWaiting());
 
 self.addEventListener('activate', (e) => e.waitUntil(
   caches.keys()
-    .then((keys) => Promise.all(keys.filter((k) => k !== V).map((k) => caches.delete(k))))
+    .then((keys) => Promise.all(keys.filter((k) => k !== V && k !== SFX).map((k) => caches.delete(k))))
     .then(() => self.clients.claim())
 ));
 
@@ -27,6 +28,21 @@ self.addEventListener('fetch', (e) => {
   const isShell = req.mode === 'navigate' || url.pathname.endsWith('/') ||
                   url.pathname.endsWith('index.html');
   const isHashed = /\/assets\/.+-[A-Za-z0-9_-]{8,}\.(js|css)$/.test(url.pathname);
+  const isSfx = /\/sfx\/[a-z0-9-]+\.wav$/.test(url.pathname);
+
+  /* Sound samples: small immutable files — once heard, cache for offline. */
+  if (isSfx) {
+    e.respondWith(
+      caches.open(SFX).then(async (cache) => {
+        const hit = await cache.match(req);
+        if (hit) return hit;
+        const res = await fetch(req);
+        if (res.ok) cache.put(req, res.clone()).catch(() => {});
+        return res;
+      }).catch(() => fetch(req))
+    );
+    return;
+  }
 
   if (isShell) {
     e.respondWith(

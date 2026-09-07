@@ -8,6 +8,7 @@ import * as TR from './tools/trains2';
 import { TrainJourney } from './tools/train-journey';
 import { Hub } from './tools/travel-hub';
 import { Settings } from './tools/settings';
+import { EmergencyDirectory } from './tools/help-dir';
 import { Spin } from './ui/kit';
 import { Icon } from './ui/icons';
 import logo from './assets/logo.png';
@@ -43,6 +44,7 @@ const TOOLS = [
   { id: 'guide',    n: 'Travel Guide',  i: 'globe',     c: 'Travel', t: 'live', d: 'City info + SOS numbers',                C: T.TravelGuide },
   { id: 'sos',      n: 'Emergency',     i: 'warn',      c: 'Travel', t: 'live', d: 'Helplines, India & world',               C: W.Emergency },
   { id: 'dial',     n: 'Dial Codes',    i: 'signal',    c: 'Travel', t: 'live', d: 'Country calling codes',                  C: W.DialCodes },
+  { id: 'help',     n: 'Emergency Numbers', i: 'phone', c: 'Travel', t: 'off', d: 'Call & WhatsApp — police, metro, rail, bus, hospital', C: EmergencyDirectory },
 
   // ---------------- Essentials
   { id: 'weather',  n: 'Weather + AQI', i: 'sun',       c: 'Essentials', t: 'live', d: 'Forecast & air quality',             C: L.Weather },

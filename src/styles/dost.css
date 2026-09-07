@@ -217,3 +217,10 @@ button:focus-visible { outline: 2px solid rgba(255,176,32,.7); outline-offset: 2
   .tile > .live { animation: none; }
   .tile, .btn, .cat { transition: none; }
 }
+
+/* ------------------------------------------------------- emergency directory */
+.qcall { transition: transform .13s ease, border-color .15s; }
+.qcall:active { transform: scale(.95); }
+.qcall:hover { border-color: rgba(255,176,32,.7); }
+.qcall b { font-family: var(--font-display); letter-spacing: .5px; }
+.qcall span.dim { line-height: 1.25; }
