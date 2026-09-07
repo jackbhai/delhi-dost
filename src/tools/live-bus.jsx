@@ -89,6 +89,7 @@ export function LiveBus() {
   const [routeErr, setRouteErr] = useState('');
   const [q, setQ] = useState('');
   const [fitTick, setFitTick] = useState(0);
+  const [mapReady, setMapReady] = useState(false);
   const fittedRef = useRef('');
   const [zoom, setZoom] = useState(11);
   const [selBus, setSelBus] = useState(null);      // drill-down plate
@@ -225,9 +226,10 @@ export function LiveBus() {
         map.setView([28.6139, 77.209], 11);
         map.on('zoomend', () => setZoom(map.getZoom()));
         map.on('click', () => { if (popupRef.current) { map.closePopup(popupRef.current); popupRef.current = null; } setSelBus(null); });
+        setMapReady(true);          // redraw hook: markers draw as soon as leaflet is live
       } catch { /* map optional */ }
     })();
-    return () => { cancelled = true; setSelBus(null); mapRef.current?.remove(); mapRef.current = null; markerLayer.current = null; corridorLayer.current = null; leafRef.current = null; };
+    return () => { cancelled = true; setMapReady(false); setSelBus(null); mapRef.current?.remove(); mapRef.current = null; markerLayer.current = null; corridorLayer.current = null; leafRef.current = null; };
   }, [aliveMap]);
 
   /* ------------------------------- map drawing --------------------------- */
@@ -237,6 +239,7 @@ export function LiveBus() {
   const effZoom = Math.max(zoom, route ? 12 : 9);
 
   useEffect(() => {
+    if (!mapReady) return;
     const L = leafRef.current, map = mapRef.current, ml = markerLayer.current, cl = corridorLayer.current;
     if (!L || !map || !ml || !cl) return;
     ml.clearLayers(); cl.clearLayers();
@@ -313,7 +316,7 @@ export function LiveBus() {
     else map.setView([28.6139, 77.209], 12);
     fittedRef.current = routeKey;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [route, drawList, corridor, effZoom, fitTick, aliveMap]);
+  }, [route, drawList, corridor, effZoom, fitTick, mapReady]);
 
   const hueOf = useMemo(() => {
     const m = new Map(); let n = 0;
