@@ -346,7 +346,9 @@ export function LiveBus() {
         for (const r of ROUTES) {
           const n = normRoute(r.r);
           if (!n) continue;
-          if (n === want || (s.length >= 3 && (n.includes(want) || want.includes(n)))) {
+          // substring fallback only for close ids (leading-digit service variants, e.g. 1740 vs 740),
+          // never for far-off substrings (98765 must not match 765):
+          if (n === want || (s.length >= 3 && ((n.includes(want) && n.length - want.length <= 2) || (want.includes(n) && want.length - n.length <= 1)))) {
             const g = fam.get(n) || { norm: n, display: r.r, dirs: new Map() };
             if (r.r.length < g.display.length) g.display = r.r;
             const pair = `${r.f || '?'}~${r.t || '?'}`;
