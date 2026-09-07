@@ -9,7 +9,7 @@ import { TrainJourney } from './tools/train-journey';
 import { Hub } from './tools/travel-hub';
 import { Settings } from './tools/settings';
 import { EmergencyDirectory } from './tools/help-dir';
-import { MyStops } from './tools/my-stops';
+
 import { Spin } from './ui/kit';
 import { Icon } from './ui/icons';
 import logo from './assets/logo.png';
@@ -21,6 +21,7 @@ const BusHub = lazy(() => import('./tools/travel-hubs').then((m) => ({ default: 
 const MetroHub = lazy(() => import('./tools/travel-hubs').then((m) => ({ default: m.MetroHub })));
 const MultiModal = lazy(() => import('./tools/multimodal').then((m) => ({ default: m.MultiModal })));
 const LiveBus = lazy(() => import('./tools/live-bus').then((m) => ({ default: m.LiveBus })));
+const MyStops = lazy(() => import('./tools/my-stops').then((m) => ({ default: m.MyStops })));
 
 const TrainHub = () => (
   <Hub icon="train" title="Trains" sub="Live status · schedule · trains between stations"
