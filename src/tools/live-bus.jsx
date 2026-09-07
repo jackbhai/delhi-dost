@@ -47,6 +47,7 @@ export function LiveBus() {
   const [fit, setFit] = useState(0);
   const [attempt, setAttempt] = useState(0);
   const [relay, setRelay] = useState(null); // null=checking, 'none', 'setup'
+  const [mapReady, setMapReady] = useState(false);
   const boxRef = useRef(null);
   const mapRef = useRef(null);
   const leafRef = useRef(null);
@@ -84,36 +85,12 @@ export function LiveBus() {
     return () => { alive = false; clearInterval(timer); document.removeEventListener('visibilitychange', vis); };
   }, [attempt]);
 
-  /* ------------------------------- the map ------------------------------- */
-  useEffect(() => {
-    if (!boxRef.current) return;
-    let cancelled = false;
-    let map = null;
-    (async () => {
-      try {
-        const mod = await import('leaflet');
-        await import('leaflet/dist/leaflet.css');
-        const L = mod.default || mod;
-        if (cancelled || !boxRef.current) return;
-        leafRef.current = L;
-        map = L.map(boxRef.current, { zoomControl: true, attributionControl: true, minZoom: 4 });
-        mapRef.current = map;
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19, attribution: 'Map data © OpenStreetMap' })
-          .addTo(map);
-        layerRef.current = L.layerGroup().addTo(map);
-        map.setView([28.6139, 77.209], 11);
-      } catch { /* map optional — the list still works */ }
-    })();
-    return () => {
-      cancelled = true;
-      mapRef.current?.remove();
-      mapRef.current = null; layerRef.current = null; leafRef.current = null;
-    };
-  }, []);
+
 
   /* ------------------------- redraw markers on data ----------------------- */
   const list = buses || [];
   useEffect(() => {
+    if (!mapReady) return;
     const L = leafRef.current, map = mapRef.current, group = layerRef.current;
     if (!L || !map || !group) return;
     group.clearLayers();
@@ -143,7 +120,7 @@ export function LiveBus() {
         }
       } catch { /* ignore */ }
     }
-  }, [buses, fit, list.length]);
+  }, [mapReady, buses, fit, list.length]);
 
   const routes = useMemo(() => {
     const seen = new Set();
@@ -160,6 +137,35 @@ export function LiveBus() {
   const busy = buses === null;
   const dead = !busy && (!!err && list.length === 0 || relay === 'none' || relay === 'setup');
   const setupMode = relay === 'setup';
+  const showMap = !busy && !dead;
+
+  /* ------------------------------- the map ------------------------------- */
+  useEffect(() => {
+    if (!showMap || mapRef.current || !boxRef.current) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const mod = await import('leaflet');
+        await import('leaflet/dist/leaflet.css');
+        const L = mod.default || mod;
+        if (cancelled || !boxRef.current) return;
+        leafRef.current = L;
+        const map = L.map(boxRef.current, { zoomControl: true, attributionControl: true, minZoom: 4 });
+        mapRef.current = map;
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { subdomains: 'abc', maxZoom: 19, attribution: 'Map data © OpenStreetMap' })
+          .addTo(map);
+        layerRef.current = L.layerGroup().addTo(map);
+        map.setView([28.6139, 77.209], 11);
+        setMapReady(true);
+      } catch { /* map optional — the list still works */ }
+    })();
+    return () => {
+      cancelled = true;
+      setMapReady(false);
+      mapRef.current?.remove();
+      mapRef.current = null; layerRef.current = null; leafRef.current = null;
+    };
+  }, [showMap]);
 
   return (
     <div style={{ paddingBottom: 30 }}>
@@ -198,16 +204,18 @@ export function LiveBus() {
               follow the deploy steps in <b>KEY-SAFETY-GUIDE.md</b> (it ships with the project).</p>
           </div>)}
 
+        {!busy && !dead && (
+          <div style={{ height: '52vh', minHeight: 300, position: 'relative', background: 'var(--s1)' }}>
+            <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
+          </div>)}
+
         {!busy && !dead && list.length === 0 && (
           <div className="state" style={{ padding: '34px 0' }}>
             <p>No bus positions reported right now.</p>
-            <p className="dim sm">Live data updates every few seconds — pull to refresh soon.</p>
+            <p className="dim sm">Live data updates every few seconds — refresh soon.</p>
           </div>)}
 
         {list.length > 0 && (<>
-          <div style={{ height: '52vh', minHeight: 300, position: 'relative', background: 'var(--s1)' }}>
-            <div ref={boxRef} style={{ position: 'absolute', inset: 0 }} />
-          </div>
 
           <div style={{ padding: '12px 16px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <input value={q} onChange={(e) => setQ(e.target.value)}

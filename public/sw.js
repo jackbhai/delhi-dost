@@ -5,7 +5,7 @@
  *   - /api/*                     -> never intercepted (live data must stay fresh)
  *   - everything cross-origin    -> never touched
  */
-const V = 'dost-v4';
+const V = 'dost-v5';
 const SFX = 'dost-sfx-v1';
 
 self.addEventListener('install', () => self.skipWaiting());

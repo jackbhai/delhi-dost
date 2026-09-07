@@ -226,7 +226,10 @@ export async function resolvePnr(pnr, opts = {}) {
   if (inflight.has(pnr)) return inflight.get(pnr);
 
   const attempt = (async () => {
-    if (list.length === 0) {
+    // Without at least one keyed channel a real answer is impossible
+    // (the keyless fallback is best-effort only), so tell the UI to ask for keys.
+    const keyed = list.filter((s) => s.id !== 'erail');
+    if (keyed.length === 0) {
       const e = new Error('setup'); e.setup = true; throw e;
     }
     let lastErr = null;
