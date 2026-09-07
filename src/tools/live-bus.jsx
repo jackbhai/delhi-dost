@@ -337,10 +337,13 @@ export function LiveBus() {
     const s = q.trim();
     if (!s) return [];
     const sq = normRoute(s);
-    const fromLive = routeCounts.filter((r) => normRoute(r.id).includes(sq) || r.id.includes(s)).slice(0, 6);
-    if (fromLive.length) return fromLive.map((r) => ({ id: r.id, n: r.n, kind: 'live' }));
-    // no live bus on that number right now — offer to open the corridor anyway
-    return [{ id: q.trim().toUpperCase(), n: 0, kind: 'corridor' }];
+    const fromLive = routeCounts.filter((r) => {
+      const n = normRoute(r.id); return !!n && (n.includes(sq) || r.id.includes(s));
+    }).slice(0, 5);
+    const out = fromLive.map((r) => ({ id: r.id, n: r.n, kind: 'live' }));
+    // always also offer the static corridor for exactly what they typed
+    if (s.length >= 2) out.push({ id: s.toUpperCase(), n: 0, kind: 'corridor', raw: s });
+    return out.slice(0, 6);
   }, [q, routeCounts]);
 
   const focusStats = useMemo(() => {
@@ -416,8 +419,8 @@ export function LiveBus() {
                       border: 0, borderTop: '1px solid var(--line)', textAlign: 'left', cursor: 'pointer', color: 'var(--fg)' }}>
                     <b style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>{s.id}</b>
                     {s.kind === 'live'
-                      ? <span className="dim sm" style={{ marginLeft: 'auto' }}>{s.n} live</span>
-                      : <span className="dim sm" style={{ marginLeft: 'auto' }}>corridor dikhao · 0 live abhi</span>}
+                      ? <span className="tag g" style={{ fontWeight: 700 }}>{s.n} live now</span>
+                      : <span className="tag" style={{ color: 'var(--cyan)', borderColor: 'rgba(76,201,255,.4)' }}>static corridor · 0 live abhi</span>}
                     <Icon n="right" size={14} style={{ color: 'var(--fg3)' }} />
                   </button>))}
               </div>)}
@@ -439,8 +442,21 @@ export function LiveBus() {
           {busy && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 55%, transparent)', zIndex: 400 }}>
             <div className="state"><span className="spin" /><p>Live buses se jud rahe hain…</p></div>
           </div>}
-          {!busy && relay && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 45%, transparent)' }}>
-            <div className="state"><p className="dim sm">{setupMode ? 'Server key set nahi — OTDLIVE_KEY + redeploy karo' : 'Relay is host pe nahi — Vercel URL use karo'}</p></div>
+          {!busy && relay && <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', background: 'color-mix(in srgb, var(--bg) 45%, transparent)', zIndex: 300 }}>
+            <div className="state" style={{ padding: '0 18px' }}>
+              {setupMode ? (
+                <><p className="dim sm">Server key set nahi — OTDLIVE_KEY + redeploy karo (README).</p></>
+              ) : (
+                <>
+                  <p style={{ fontWeight: 650 }}>Ye host live data nahi de sakta</p>
+                  <p className="dim sm" style={{ maxWidth: 300, margin: '4px auto 12px' }}>GitHub Pages sirf static hai — live buses ke liye Vercel wala version kholo (key wahi hai):</p>
+                  <a className="btn" style={{ color: '#170800', textDecoration: 'none', display: 'inline-flex', gap: 8, alignItems: 'center' }}
+                    href="https://delhi-dost.vercel.app/#livebus" target="_blank" rel="noopener">
+                    <Icon n="link" size={15} /> Live version kholo ↗
+                  </a>
+                </>
+              )}
+            </div>
           </div>}
         </div>
 
@@ -494,9 +510,10 @@ export function LiveBus() {
                     raat ke hours mein kuch routes band ho jaate hain; subah ya din mein dobara try karo.</p>
                 ) : (
                   <p className="dim sm">Is number pe abhi koi report nahi hai. Dusre number try karo — neeche "Live routes" chips se.</p>)}
-                {routeCounts.slice(0, 6).length > 0 && (
+                {routeCounts.slice(0, 8).length > 0 && (
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
-                    {routeCounts.slice(0, 6).map((r) => (
+                    <span className="dim sm" style={{ alignSelf: 'center' }}>Abhi live:</span>
+                    {routeCounts.slice(0, 8).map((r) => (
                       <button key={r.id} className="btn ghost sm" onClick={() => pickRoute(r.id)}>{r.id} · {r.n}</button>))}
                   </div>)}
               </div>
