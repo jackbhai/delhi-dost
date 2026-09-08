@@ -96,6 +96,17 @@ function bestSnap(b, lines) {
   }
   return best;
 }
+/** Which end is this bus driving toward? Uses live heading vs corridor geometry; null when idle/unknown. */
+function destEnd(b, ln) {
+  if (b.hdg == null || b.spd == null || b.spd < MOVING_KMH) return null;
+  const A = ln.stops[0], Z = ln.stops[ln.stops.length - 1];
+  if (!A || !Z || A.lat == null || Z.lat == null) return null;
+  const d = (x) => { let y = (x - b.hdg + 540) % 360 - 180; return y < -180 ? y + 360 : y; };
+  const dA = Math.abs(d(bearing(b, A))), dZ = Math.abs(d(bearing(b, Z)));
+  if (dZ <= 60 && dZ < dA) return { name: ln.to, rev: false };
+  if (dA <= 60) return { name: ln.from, rev: true };
+  return null;
+}
 /** HTML rows for a bus popup: kahan hai abhi + kaha ja rahi hai + status. */
 function busPopupRows(b, lines, hit, li, kmAway) {
   const R = [];
@@ -110,8 +121,17 @@ function busPopupRows(b, lines, hit, li, kmAway) {
     const ln = fam[Math.min(li || 0, fam.length - 1)];
     if (hit && hit.d <= SNAP_MAX_M) {
       const pct = Math.round(hit.p * 100);
-      R.push(`<div style="font-size:12.5px;line-height:1.55"><span style="color:#8A94A8">abhi:</span> <b>${esc(label(hit.prev.n))}</b> se aage · agla <b>${esc(label(hit.next.n))}</b> · ${hit.left} stop baaki (route ka ${pct}%)</div>`);
-      R.push(`<div style="font-size:12.5px"><span style="color:#8A94A8">ja rahi:</span> <b style="color:#2FE39B">→ ${esc(label(ln.to))}</b>${ln.from && ln.to ? ' ki taraf' : ''}</div>`);
+      const end = destEnd(b, ln);
+      const leftStops = end ? (end.rev ? hit.seg + 1 : hit.left) : null;
+      R.push(`<div style="font-size:12.5px;line-height:1.55"><span style="color:#8A94A8">abhi:</span> <b>${esc(label(hit.prev.n))}</b> se aage · agla <b>${esc(label(hit.next.n))}</b>${leftStops != null ? ' · ' + leftStops + ' stop baaki' : ''} (route ka ${pct}%)</div>`);
+      if (end) {
+        R.push(`<div style="font-size:12.5px"><span style="color:#8A94A8">ja rahi:</span> <b style="color:#2FE39B">→ ${esc(label(end.name))}</b> ki taraf${end.rev ? ' (heading ke hisaab se — ulti disha)' : ''}</div>`);
+      } else {
+        const both = `${esc(label(ln.from))} ↔ ${esc(label(ln.to))}`;
+        R.push(moving
+          ? `<div style="font-size:12.5px"><span style="color:#8A94A8">ja rahi:</span> heading abhi report nahi hui · corridor ${both}</div>`
+          : `<div style="font-size:12.5px"><span style="color:#8A94A8">ja rahi:</span> abhi khadi hai — chalte hi pata chalega · corridor ${both}</div>`);
+      }
     } else {
       if (kmAway != null) R.push(`<div style="font-size:12.5px;color:#8A94A8">abhi corridor se ~<b>${kmAway.toFixed(1)} km</b> door — depot / yard mein ho sakti hai</div>`);
       const pairs = [...new Set(fam.map((l) => `${esc(label(l.from))} ↔ ${esc(label(l.to))}`))].slice(0, 2);
