@@ -10,6 +10,7 @@ import { Hub } from './tools/travel-hub';
 import { Settings } from './tools/settings';
 import { EmergencyDirectory } from './tools/help-dir';
 import { PnrStatus } from './tools/pnr';
+import { ErrorBoundary } from './ErrorBoundary';
 
 import { Spin } from './ui/kit';
 import { Icon } from './ui/icons';
@@ -69,6 +70,15 @@ const NAV = [
   ['metro', 'metro', 'Metro'],
   ['livebus', 'map', 'Live Buses'],
 ];
+
+function ToolShell({ name, children }) {
+  const [tick, setTick] = useState(0);
+  return (
+    <ErrorBoundary key={tick} label={name} onRetry={() => setTick((x) => x + 1)}>
+      {children}
+    </ErrorBoundary>
+  );
+}
 
 export default function App() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || '');
@@ -190,7 +200,7 @@ export default function App() {
             </p>
           </>)}
 
-          {tool && <div style={{ paddingTop: 14 }}><Suspense fallback={<Spin />}><tool.C /></Suspense></div>}
+          {tool && <div style={{ paddingTop: 14 }}><Suspense fallback={<Spin />}><ToolShell key={tool.id} name={tool.n}><tool.C /></ToolShell></Suspense></div>}
         </div>
 
         <nav className="nav">

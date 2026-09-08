@@ -157,9 +157,10 @@ async function fetchJson(url, signal) {
 async function corridorFor(route) {
   const core = await import('../core/bus-route');
   const ROUTES = core.ROUTES || [], STOPS = core.STOPS || [];
-  const seen = new Set(); const lines = [];
+  const seen = new Set(); const lines = []; let est = false;
   for (const r of ROUTES) {
     if (normRoute(r.r) !== normRoute(route)) continue;
+    if (String(r.o || '').startsWith('MATCH')) est = true;
     const pair = `${r.f || '?'}~${r.t || '?'}`;
     if (seen.has(pair)) continue; seen.add(pair);
     const raw = (r.s || []).map((i) => (typeof i === 'number' && STOPS[i]) ? STOPS[i] : null).filter(Boolean);
@@ -172,7 +173,7 @@ async function corridorFor(route) {
     }
     lines.push({ from: r.f, to: r.t, stops, cum, total: Math.max(km, 1) });
   }
-  return { norm: normRoute(route), lines };
+  return { norm: normRoute(route), lines, est };
 }
 
 /** Snap a point to a corridor line -> { d(m), i(seg), t(0..1), mAlong }. */
@@ -772,7 +773,7 @@ export function LiveBus() {
             <Card pad={false} style={{ marginTop: 12, overflow: 'hidden' }}>
               <div className="chead" style={{ padding: '13px 15px 2px' }}>
                 <Icon n="route" size={15} /> Ab kahan hain — {shortName(line.from)} → {shortName(line.to)}
-                <span className="dim sm" style={{ marginLeft: 6 }}>(positions snapped se estimate hain)</span>
+                <span className="dim sm" style={{ marginLeft: 6 }}>{corr && corr.est ? '(corridor GPS-fit estimate · official route table mein nahi — raat ke baad naya data aa sakta hai)' : '(positions snapped se estimate hain)'}</span>
               </div>
               <div className="dim sm" style={{ padding: '2px 15px 6px', maxHeight: 46, overflow: 'hidden' }}
                 title={rail.map((st) => label(st.n)).join(' · ')}>
@@ -850,6 +851,20 @@ export function LiveBus() {
                   const moving = b.spd != null && b.spd >= MOVING_KMH;
                   const stale = b.ts && Date.now() - b.ts * 1000 > STALE_MS;
                   const pct = Math.round(s.p * 100);
+                  /* ETA to next real stop: remaining metres along corridor / live speed.
+                     Zero-length legs (merged data ke duplicate coords) skip hote hain. */
+                  let etaMin = null;
+                  if (moving && lineThis.cum && s.seg != null && s.t != null) {
+                    const si0 = Math.min(s.seg, lineThis.stops.length - 2);
+                    const mAt = (lineThis.cum[si0] || 0) + s.t * ((lineThis.cum[si0 + 1] || 0) - (lineThis.cum[si0] || 0));
+                    const kmh = Math.max(6, b.spd || 0);
+                    for (let k = si0; k < lineThis.stops.length - 1; k++) {
+                      const remM = (lineThis.cum[k + 1] || 0) - mAt;
+                      if (remM > 120) { etaMin = Math.max(1, Math.round(remM / (kmh / 3.6) / 60)); break; }
+                    }
+                  }
+                  const etaChip = etaMin != null
+                    ? <> · <span style={{ color: 'var(--cyan)', fontWeight: 700 }}>≈{etaMin} min</span></> : null;
                   return (
                     <div key={b.id} onClick={() => { setSelBus(b.id); if (!mapShow) setMapShow(true); }}
                       style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 15px', borderTop: '1px solid var(--line)', cursor: 'pointer' }}>
@@ -863,9 +878,9 @@ export function LiveBus() {
                         </span>
                         <span className="sm" style={{ display: 'block', marginTop: 1, color: 'var(--fg2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           <Icon n="pin" size={11} style={{ color: 'var(--cyan)' }} />
-                          {pct <= 4 ? <>start ke paas · abhi {label(s.next.n)} ki taraf</>
+                          {pct <= 4 ? <>start ke paas · abhi {label(s.next.n)} ki taraf{etaChip}</>
                             : pct >= 96 ? <><b>{label(lineThis.to)}</b> ke paas (end)</>
-                            : <><b>{label(s.prev.n)}</b> se aage · agla {label(s.next.n)} · {s.left} stop{lineThis.stops.length > 1 ? 's' : ''} baaki</>}
+                            : <><b>{label(s.prev.n)}</b> se aage · agla {label(s.next.n)} · {s.left} stop{lineThis.stops.length > 1 ? 's' : ''} baaki{etaChip}</>}
                         </span>
                       </span>
                       <span style={{ width: 68, textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: 13, fontWeight: 700, color: moving ? '#2FE39B' : 'var(--fg2)' }}>
